@@ -1,0 +1,709 @@
+﻿<style>
+:root {
+--bg:#0c1210; --surface:#121a17; --surface2:#17211d; --border:#233028;
+--text:#eaf3ee; --text2:#9db3a8; --text3:#6c8078;
+--accent:#37cc4d; --accent2:#22a83d; --warn:#e0a72e; --bad:#e2665f;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); }
+.ph { font-family:-apple-system,"Segoe UI","Inter",ui-sans-serif,system-ui,sans-serif; color:var(--text); max-width:1400px; margin:0 auto; padding:1.25rem 1.5rem 3rem; }
+.ph-num { font-family:"SF Mono","Cascadia Mono",Consolas,ui-monospace,monospace; font-variant-numeric:tabular-nums; }
+.ph-header { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem; }
+.ph-header h1 { font-size:1.3rem; margin:0; letter-spacing:.02em; }
+.ph-header .sub { font-size:.72rem; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; }
+.ph-header .updated { font-size:.78rem; color:var(--text2); }
+.ph-filters { display:flex; gap:1.5rem; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:.9rem 1.1rem; margin-bottom:1rem; }
+.ph-filters label { font-size:.7rem; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; display:flex; align-items:center; gap:.5rem; }
+.ph-filters select { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.4rem .6rem; font-size:.85rem; font-family:inherit; }
+.ph-filters input[type="date"] { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.35rem .6rem; font-size:.85rem; font-family:inherit; color-scheme:dark; }
+.ph-tabs { display:flex; gap:1.5rem; border-bottom:1px solid var(--border); margin-bottom:1.25rem; }
+.ph-tab { background:none; border:none; color:var(--text3); font-family:inherit; font-size:.78rem; font-weight:700; letter-spacing:.04em; padding:.6rem .1rem; cursor:pointer; border-bottom:2px solid transparent; }
+.ph-tab.is-active { color:var(--accent); border-color:var(--accent); }
+.ph-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:.8rem; margin-bottom:1rem; }
+.ph-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem 1.1rem; }
+.ph-card .lbl { font-size:.68rem; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem; }
+.ph-card .val { font-size:1.7rem; font-weight:700; }
+.ph-card .sub2 { font-size:.72rem; color:var(--text2); margin-top:.3rem; }
+.ph-badge { display:inline-block; font-size:.68rem; font-weight:700; padding:.1rem .5rem; border-radius:999px; margin-top:.3rem; }
+.ph-badge.good { background:rgba(55,204,77,.15); color:var(--accent); }
+.ph-badge.warn { background:rgba(224,167,46,.15); color:var(--warn); }
+.ph-badge.bad { background:rgba(226,102,95,.15); color:var(--bad); }
+.ph-section { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1rem; }
+.ph-section h3 { margin:0 0 .2rem; font-size:.85rem; letter-spacing:.03em; }
+.ph-section .desc { font-size:.72rem; color:var(--text3); margin-bottom:.9rem; }
+.ph-stackbar { display:flex; height:34px; border-radius:8px; overflow:hidden; background:var(--surface2); margin:.6rem 0; }
+.ph-stackbar span { display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; color:#08130a; }
+.ph-legend { display:flex; gap:1rem; font-size:.72rem; color:var(--text2); }
+.ph-legend i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:.35rem; }
+.ph-bars { display:flex; align-items:flex-end; gap:.6rem; height:160px; margin-top:.8rem; }
+.ph-bar-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:.3rem; }
+.ph-bar-stack { width:100%; max-width:52px; display:flex; flex-direction:column-reverse; border-radius:4px 4px 0 0; overflow:hidden; }
+.ph-bar-lbl { font-size:.68rem; color:var(--text3); text-align:center; }
+.ph-bar-val { font-size:.72rem; color:var(--text2); font-weight:700; }
+table.ph-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+table.ph-table th { text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); padding:.5rem .6rem; border-bottom:1px solid var(--border); }
+table.ph-table th.num, table.ph-table td.num { text-align:right; }
+table.ph-table td { padding:.55rem .6rem; border-bottom:1px solid var(--border); }
+table.ph-table tr:last-child td { border-bottom:none; }
+table.ph-table tr.total td { font-weight:700; background:var(--surface2); }
+.ph-rank { display:inline-flex; width:22px; height:22px; align-items:center; justify-content:center; border-radius:50%; background:var(--surface2); font-size:.72rem; font-weight:700; margin-right:.5rem; }
+.ph-funnel-row { display:flex; align-items:center; gap:.6rem; margin:.5rem 0; }
+.ph-funnel-track { flex:1; height:30px; background:var(--surface2); border-radius:6px; overflow:hidden; }
+.ph-funnel-fill { height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); display:flex; align-items:center; padding-left:.6rem; font-size:.75rem; font-weight:700; color:#08130a; }
+.ph-funnel-lbl { width:110px; font-size:.75rem; color:var(--text2); }
+.ph-funnel-drop { width:60px; font-size:.7rem; color:var(--bad); text-align:right; }
+.ph-cols2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.ph-foot { font-size:.72rem; color:var(--text3); line-height:1.6; margin-top:1.5rem; }
+.ph-info { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; border:1px solid var(--text3); color:var(--text3); font-size:.62rem; font-weight:700; margin-left:.4rem; cursor:pointer; user-select:none; vertical-align:middle; line-height:1; }
+.ph-info:hover { border-color:var(--accent); color:var(--accent); }
+.ph-popover { position:absolute; z-index:50; max-width:300px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:.75rem .85rem; font-size:.75rem; line-height:1.55; color:var(--text2); box-shadow:0 12px 32px rgba(0,0,0,.5); }
+@media (max-width:900px){ .ph-cols2{ grid-template-columns:1fr; } }
+</style>
+
+<div class="ph" id="phApp"><div class="ph-section">Carregando...</div></div>
+
+<script>
+var DATA = <?!= data ?>;
+var BDR_NAMES = (function(){
+var names = new Set();
+Object.keys(DATA.metas || {}).forEach(function(mk){ Object.keys(DATA.metas[mk] || {}).forEach(function(n){ names.add(n); }); });
+return names.size ? Array.from(names).sort() : Array.from(new Set(DATA.deals.map(function(d){return d.bdr;}))).sort();
+})();
+var ORIGEM_NAMES = Array.from(new Set(DATA.deals.map(function(d){return d.origem || 'Nenhuma';}))).sort();
+var HUBSPOT_BASE = 'https://app.hubspot.com/contacts/23636141/record/0-3/';
+var COLOR = { good:'#37cc4d', warn:'#e0a72e', bad:'#e2665f' };
+var _nowInit = new Date();
+var STATE = { periodo:'mes_atual', vendedor:'todos', origem:'todos', tab:'geral',
+customStart: toISO(new Date(_nowInit.getFullYear(), _nowInit.getMonth(), 1)),
+customEnd: toISO(_nowInit) };
+
+function pad2(n){ return n<10 ? '0'+n : ''+n; }
+function toISO(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function parseD(s){ return s ? new Date(s) : null; }
+function fmtBR(s){ if(!s) return '-'; var d=new Date(s); return pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'/'+d.getFullYear(); }
+function pct(a,b){ return b>0 ? Math.round((a/b)*100) : 0; }
+function fmtMoney(v){ return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function badgeClass(p){ return p>=100?'good':(p>=70?'warn':'bad'); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function infoIcon(text){ return '<span class="ph-info" data-tip="'+esc(text)+'">i</span>'; }
+
+function periodRange(key){
+var now = new Date();
+var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+if (key === 'mes_atual') {
+return { start:new Date(now.getFullYear(),now.getMonth(),1), end:new Date(now.getFullYear(),now.getMonth()+1,1), label:'Mês atual' };
+}
+if (key === 'mes_passado') {
+return { start:new Date(now.getFullYear(),now.getMonth()-1,1), end:new Date(now.getFullYear(),now.getMonth(),1), label:'Mês passado' };
+}
+if (key === 'ultimos_7') {
+var s = new Date(todayStart); s.setDate(s.getDate()-6);
+var e = new Date(todayStart); e.setDate(e.getDate()+1);
+return { start:s, end:e, label:'Últimos 7 dias' };
+}
+if (key === 'custom') {
+var cs = STATE.customStart ? new Date(STATE.customStart+'T00:00:00') : todayStart;
+var ce = STATE.customEnd ? new Date(STATE.customEnd+'T00:00:00') : todayStart;
+ce = new Date(ce.getFullYear(), ce.getMonth(), ce.getDate()+1);
+return { start:cs, end:ce, label:'Personalizado' };
+}
+return { start:new Date(2026,5,1), end:new Date(now.getFullYear(),now.getMonth()+1,1), label:'Tudo (desde jun/26)' };
+}
+
+function metasForRange(range){
+var key = range.start.getFullYear()+'-'+pad2(range.start.getMonth()+1);
+return (DATA.metas && DATA.metas[key]) || {};
+}
+
+function dataParaMeta(d){
+return d.reuniaoEfetiva === 'Sim' ? (d.dataEfetiva || d.dataReuniao) : d.dataReuniao;
+}
+
+function inRange(dateStr, range){
+if (!dateStr) return false;
+var d = new Date(dateStr);
+return d >= range.start && d < range.end;
+}
+
+function filterByVendedor(list){
+if (STATE.vendedor === 'todos') return list;
+return list.filter(function(d){ return d.bdr === STATE.vendedor; });
+}
+
+function filterByOrigem(list){
+if (STATE.origem === 'todos') return list;
+return list.filter(function(d){ return (d.origem || 'Nenhuma') === STATE.origem; });
+}
+
+function filterDeals(list){
+return filterByOrigem(filterByVendedor(list));
+}
+
+function activeBdrs(){
+return STATE.vendedor === 'todos' ? BDR_NAMES : [STATE.vendedor];
+}
+</script>
+
+<script>
+function renderShell(){
+var range = periodRange(STATE.periodo);
+var bdrOptions = BDR_NAMES.map(function(n){ return '<option value="'+esc(n)+'"'+(STATE.vendedor===n?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+var html = '';
+html += '<div class="ph-header"><div><h1>Outbound &mdash; Painel de Gestão</h1><div class="sub">Integrado com HubSpot &middot; ao vivo</div></div>';
+html += '<div class="updated">Atualizado '+new Date(DATA.geradoEm).toLocaleString('pt-BR')+'</div></div>';
+html += '<div class="ph-filters">';
+html += '<label>Período <select id="fPeriodo">';
+[['mes_atual','Mês atual'],['mes_passado','Mês passado'],['ultimos_7','Últimos 7 dias'],['tudo','Tudo (desde jun/26)'],['custom','Personalizado']].forEach(function(o){
+html += '<option value="'+o[0]+'"'+(STATE.periodo===o[0]?' selected':'')+'>'+o[1]+'</option>';
+});
+html += '</select></label>';
+if (STATE.periodo === 'custom') {
+html += '<label>De <input type="date" id="fCustomStart" value="'+esc(STATE.customStart)+'"></label>';
+html += '<label>Até <input type="date" id="fCustomEnd" value="'+esc(STATE.customEnd)+'"></label>';
+}
+html += '<label>Vendedor <select id="fVendedor"><option value="todos"'+(STATE.vendedor==='todos'?' selected':'')+'>Todos os vendedores</option>'+bdrOptions+'</select></label>';
+html += '<label>Origem <select id="fOrigem"><option value="todos"'+(STATE.origem==='todos'?' selected':'')+'>Todas as origens</option>';
+ORIGEM_NAMES.forEach(function(o){ html += '<option value="'+esc(o)+'"'+(STATE.origem===o?' selected':'')+'>'+esc(o)+'</option>'; });
+html += '</select></label>';
+html += '</div>';
+html += '<div class="ph-tabs">';
+[['geral','Visão geral'],['ranking','Ranking'],['evolucao','Evolução'],['funil','Funil vs meta'],['tipo_reuniao','Online vs Presencial'],['cohort','Cohort']].forEach(function(t){
+html += '<button class="ph-tab'+(STATE.tab===t[0]?' is-active':'')+'" data-tab="'+t[0]+'">'+t[1].toUpperCase()+'</button>';
+});
+html += '</div>';
+html += '<div id="phTabBody"></div>';
+document.getElementById('phApp').innerHTML = html;
+
+document.getElementById('fPeriodo').addEventListener('change', function(e){ STATE.periodo = e.target.value; renderShell(); });
+document.getElementById('fVendedor').addEventListener('change', function(e){ STATE.vendedor = e.target.value; renderTab(); });
+document.getElementById('fOrigem').addEventListener('change', function(e){ STATE.origem = e.target.value; renderTab(); });
+if (STATE.periodo === 'custom') {
+document.getElementById('fCustomStart').addEventListener('change', function(e){ STATE.customStart = e.target.value; renderTab(); });
+document.getElementById('fCustomEnd').addEventListener('change', function(e){ STATE.customEnd = e.target.value; renderTab(); });
+}
+document.querySelector('.ph-tabs').addEventListener('click', function(e){
+var btn = e.target.closest('.ph-tab');
+if (!btn) return;
+STATE.tab = btn.getAttribute('data-tab');
+document.querySelectorAll('.ph-tab').forEach(function(b){ b.classList.remove('is-active'); });
+btn.classList.add('is-active');
+renderTab();
+});
+document.getElementById('phApp').addEventListener('click', function(e){
+var icon = e.target.closest('.ph-info');
+closeInfoPopover();
+if (!icon) return;
+e.stopPropagation();
+var pop = document.createElement('div');
+pop.className = 'ph-popover';
+pop.textContent = icon.getAttribute('data-tip');
+document.body.appendChild(pop);
+var r = icon.getBoundingClientRect();
+var left = Math.min(r.left, window.innerWidth - 316);
+pop.style.left = Math.max(8, left) + 'px';
+pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+});
+renderTab();
+}
+
+function closeInfoPopover(){
+var p = document.querySelector('.ph-popover');
+if (p) p.remove();
+}
+document.addEventListener('click', function(e){
+if (!e.target.closest('.ph-info') && !e.target.closest('.ph-popover')) closeInfoPopover();
+});
+
+function renderTab(){
+var body = document.getElementById('phTabBody');
+if (STATE.tab === 'geral') body.innerHTML = viewGeral();
+else if (STATE.tab === 'ranking') body.innerHTML = viewRanking();
+else if (STATE.tab === 'evolucao') body.innerHTML = viewEvolucao();
+else if (STATE.tab === 'funil') body.innerHTML = viewFunil();
+else if (STATE.tab === 'tipo_reuniao') body.innerHTML = viewTipoReuniao();
+else if (STATE.tab === 'cohort') body.innerHTML = viewCohort();
+}
+</script>
+
+<script>
+function computeGeral(){
+var range = periodRange(STATE.periodo);
+var deals = filterDeals(DATA.deals);
+var inPeriod = deals.filter(function(d){ return inRange(dataParaMeta(d), range); });
+var validados = inPeriod.filter(function(d){ return d.reuniaoEfetiva === 'Sim'; }).length;
+var naoValidos = inPeriod.filter(function(d){ return d.reuniaoEfetiva === 'Não'; }).length;
+var total = inPeriod.length;
+var aValidar = total - validados - naoValidos;
+
+var todayIso = toISO(new Date());
+var hoje = deals.filter(function(d){ return d.dataReuniao === todayIso; }).length;
+var wr = periodRange('ultimos_7');
+var semana = deals.filter(function(d){ return inRange(d.dataReuniao, wr); }).length;
+
+var now = new Date();
+var msDay = 86400000;
+var diasTotais = Math.max(1, Math.round((range.end - range.start) / msDay));
+var fimEfetivo = now < range.end ? now : range.end;
+var diasDecorridos = Math.min(diasTotais, Math.max(1, Math.round((fimEfetivo - range.start) / msDay)));
+var mediaPorDia = (total / diasDecorridos).toFixed(1);
+
+var bdrs = activeBdrs();
+var metasMapG = metasForRange(range);
+var meta = bdrs.reduce(function(s,n){ return s + (metasMapG[n]||0); }, 0);
+var metaProRata = meta * (diasDecorridos / diasTotais);
+var projecao = Math.round(validados + 0.85*aValidar);
+
+var lider = null, liderVal = -1;
+bdrs.forEach(function(n){
+var v = inPeriod.filter(function(d){ return d.bdr===n && d.reuniaoEfetiva==='Sim'; }).length;
+if (v > liderVal) { liderVal = v; lider = n; }
+});
+
+var bookingCohort = deals.filter(function(d){ return d.stageDates && d.stageDates[4] && inRange(d.stageDates[4], range); });
+var bookingValidados = bookingCohort.filter(function(d){ return d.reuniaoEfetiva === 'Sim'; }).length;
+var bookingNaoValidos = bookingCohort.filter(function(d){ return d.reuniaoEfetiva === 'Não'; }).length;
+var bookingTotal = bookingCohort.length;
+var bookingAValidar = bookingTotal - bookingValidados - bookingNaoValidos;
+
+return { range:range, inPeriod:inPeriod, deals:deals, total:total, validados:validados, aValidar:aValidar, naoValidos:naoValidos,
+hoje:hoje, semana:semana, mediaPorDia:mediaPorDia, meta:meta, metaProRata:metaProRata, projecao:projecao, lider:lider, liderVal:liderVal, bdrs:bdrs,
+bookingTotal:bookingTotal, bookingValidados:bookingValidados, bookingAValidar:bookingAValidar, bookingNaoValidos:bookingNaoValidos };
+}
+
+function viewGeral(){
+var g = computeGeral();
+var h = '';
+h += '<div class="ph-grid">';
+h += '<div class="ph-card"><div class="lbl">Total no período'+infoIcon('Quantidade de reuniões com DATA DA REUNIÃO marcada dentro do período selecionado (Validadas + A validar + Não válidas). Não olha quando o agendamento foi feito nem quando o lead foi criado — só a data em que a reunião está/estava marcada para acontecer. Esse é o número usado no atingimento da meta. Veja também a seção "Agendamentos feitos no período" logo abaixo, que conta pela data em que o agendamento foi realizado (mesmo critério do relatório nativo do HubSpot) — pode diferir deste.')+'</div><div class="val ph-num">'+g.total+'</div><div class="sub2">'+toISO(g.range.start)+' a '+toISO(new Date(g.range.end-1))+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Esta semana'+infoIcon('Mesma métrica de Total no período, mas fixa nos últimos 7 dias corridos — não muda com o filtro de Período.')+'</div><div class="val ph-num">'+g.semana+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Hoje'+infoIcon('Quantidade de reuniões marcadas para a data de hoje.')+'</div><div class="val ph-num">'+g.hoje+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Média por dia'+infoIcon('Total no período dividido pelos dias já decorridos dentro do período (não pelos dias totais), para não subestimar o ritmo em períodos ainda em andamento.')+'</div><div class="val ph-num">'+g.mediaPorDia+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Líder do período (válidos)'+infoIcon('Vendedor com mais reuniões marcadas como Válidas (reunião efetiva = Sim) dentro do período selecionado.')+'</div><div class="val" style="font-size:1.2rem;color:var(--accent)">'+(g.lider||'-')+'</div><div class="ph-badge good">'+g.liderVal+' válidos</div></div>';
+h += '<div class="ph-card"><div class="lbl">Atingimento projeção'+infoIcon('Validados do período dividido pela Meta pro-rata (meta ajustada pelos dias já decorridos). Mostra se o ritmo atual está dentro do esperado até hoje.')+'</div><div class="val ph-num">'+pct(g.validados,g.metaProRata)+'%</div><div class="sub2">vs meta pro rata</div></div>';
+h += '<div class="ph-card"><div class="lbl">Atingimento projetado (fim período)'+infoIcon('Projeta o resultado final do período (Validados + 85% do que ainda está A Validar) e compara com a Meta cheia do período.')+'</div><div class="val ph-num">'+pct(g.projecao,g.meta)+'%</div><div class="sub2">projeção '+g.projecao+' / meta '+g.meta+'</div></div>';
+h += '</div>';
+
+h += '<div class="ph-section"><h3>Agendamentos feitos no período'+infoIcon('Quantos negócios ENTRARAM na etapa Agendado dentro do período selecionado — o mesmo critério do relatório nativo do HubSpot (coluna "Date entered Agendado"). Independente de quando o lead foi criado ou da data marcada para a reunião em si: conta pela data em que o BDR efetivamente fez o agendamento. Validados/A validar/Não válidos aqui refletem o status atual dessas reuniões, mesmo que a reunião ainda vá acontecer depois do fim do período.')+'</h3><div class="desc">Data em que o agendamento foi realizado (não a data da reunião) &middot; '+toISO(g.range.start)+' a '+toISO(new Date(g.range.end-1))+'</div>';
+h += '<div class="ph-grid" style="grid-template-columns:repeat(4,1fr)">';
+h += '<div class="ph-card"><div class="lbl">Agendamentos feitos</div><div class="val ph-num">'+g.bookingTotal+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Validados</div><div class="val ph-num" style="color:var(--accent)">'+g.bookingValidados+'</div><div class="sub2">'+pct(g.bookingValidados,g.bookingTotal)+'%</div></div>';
+h += '<div class="ph-card"><div class="lbl">A validar</div><div class="val ph-num" style="color:var(--warn)">'+g.bookingAValidar+'</div><div class="sub2">'+pct(g.bookingAValidar,g.bookingTotal)+'%</div></div>';
+h += '<div class="ph-card"><div class="lbl">Não válidos</div><div class="val ph-num" style="color:var(--bad)">'+g.bookingNaoValidos+'</div><div class="sub2">'+pct(g.bookingNaoValidos,g.bookingTotal)+'%</div></div>';
+h += '</div></div>';
+
+h += '<div class="ph-section"><h3>Composição do volume'+infoIcon('Todo agendamento cai em uma de três categorias: Validado (reunião aconteceu de fato), A validar (ainda sem retorno confirmado) ou Não válido (não rolou / não é fit).')+'</h3><div class="desc">Total = Validados + A Validar + Não Válidos &middot; '+toISO(g.range.start)+' a '+toISO(new Date(g.range.end-1))+'</div>';
+h += '<div class="ph-grid" style="grid-template-columns:repeat(4,1fr)">';
+h += '<div class="ph-card"><div class="lbl">Volume total</div><div class="val ph-num">'+g.total+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Validados</div><div class="val ph-num" style="color:var(--accent)">'+g.validados+'</div><div class="sub2">'+pct(g.validados,g.total)+'%</div></div>';
+h += '<div class="ph-card"><div class="lbl">A validar</div><div class="val ph-num" style="color:var(--warn)">'+g.aValidar+'</div><div class="sub2">'+pct(g.aValidar,g.total)+'%</div></div>';
+h += '<div class="ph-card"><div class="lbl">Não válidos</div><div class="val ph-num" style="color:var(--bad)">'+g.naoValidos+'</div><div class="sub2">'+pct(g.naoValidos,g.total)+'%</div></div>';
+h += '</div>';
+h += '<div class="ph-stackbar">';
+if (g.total>0) {
+h += '<span style="width:'+pct(g.validados,g.total)+'%;background:var(--accent)">'+pct(g.validados,g.total)+'%</span>';
+h += '<span style="width:'+pct(g.aValidar,g.total)+'%;background:var(--warn)">'+pct(g.aValidar,g.total)+'%</span>';
+h += '<span style="width:'+pct(g.naoValidos,g.total)+'%;background:var(--bad)">'+pct(g.naoValidos,g.total)+'%</span>';
+}
+h += '</div>';
+h += '<div class="ph-legend"><span><i style="background:var(--accent)"></i>Validados</span><span><i style="background:var(--warn)"></i>A validar</span><span><i style="background:var(--bad)"></i>Não válidos</span></div>';
+h += '</div>';
+
+var metasMap = metasForRange(g.range);
+var maxAg = 1, maxMeta = 1;
+g.bdrs.forEach(function(n){
+var iv = g.inPeriod.filter(function(d){return d.bdr===n;});
+var tt = iv.length;
+if (tt>maxAg) maxAg = tt;
+var m = metasMap[n]||0;
+var r = iv.filter(function(d){return d.reuniaoEfetiva==='Sim';}).length;
+if (Math.max(m,r) > maxMeta) maxMeta = Math.max(m,r);
+});
+
+h += '<div class="ph-cols2">';
+h += '<div class="ph-section"><h3>Agendamentos por vendedor'+infoIcon('Total de reuniões marcadas por vendedor no período, com a proporção entre Validados, A validar e Não válidos. Passe o mouse em cima de uma barra para ver os números.')+'</h3><div class="desc">Validados / A validar / Não válidos</div><div class="ph-bars">';
+g.bdrs.forEach(function(n){
+var iv = g.inPeriod.filter(function(d){return d.bdr===n;});
+var v = iv.filter(function(d){return d.reuniaoEfetiva==='Sim';}).length;
+var nv = iv.filter(function(d){return d.reuniaoEfetiva==='Não';}).length;
+var av = iv.length - v - nv;
+var tot = iv.length;
+var hpx = Math.round((tot/maxAg)*130);
+h += '<div class="ph-bar-col" title="'+esc(n)+' — Validados: '+v+' · A validar: '+av+' · Não válidos: '+nv+' · Total: '+tot+'"><div class="ph-bar-val">'+tot+'</div><div class="ph-bar-stack" style="height:'+hpx+'px">';
+if (v>0) h += '<div style="height:'+Math.round((v/Math.max(tot,1))*100)+'%;background:var(--accent)"></div>';
+if (av>0) h += '<div style="height:'+Math.round((av/Math.max(tot,1))*100)+'%;background:var(--warn)"></div>';
+if (nv>0) h += '<div style="height:'+Math.round((nv/Math.max(tot,1))*100)+'%;background:var(--bad)"></div>';
+h += '</div><div class="ph-bar-lbl">'+n.split(' ')[0]+'</div></div>';
+});
+h += '</div></div>';
+
+h += '<div class="ph-section"><h3>Atingimento da meta'+infoIcon('Reuniões Validadas de cada vendedor comparadas à meta individual do período (meta cheia, sem ajuste por dias decorridos).')+'</h3><div class="desc">Realizado validado vs meta do período</div><div class="ph-bars">';
+g.bdrs.forEach(function(n){
+var iv = g.inPeriod.filter(function(d){return d.bdr===n;});
+var r = iv.filter(function(d){return d.reuniaoEfetiva==='Sim';}).length;
+var m = metasMap[n]||0;
+var hpx = Math.round((Math.max(r,m)/maxMeta)*130);
+var rpx = Math.round((r/maxMeta)*130);
+h += '<div class="ph-bar-col" title="'+esc(n)+' — Realizado: '+r+' / Meta: '+m+'"><div class="ph-bar-val"><span class="ph-badge '+badgeClass(pct(r,m))+'">'+pct(r,m)+'%</span></div>';
+h += '<div style="position:relative;width:100%;max-width:52px;height:'+hpx+'px;background:var(--surface2);border-radius:4px 4px 0 0;">';
+h += '<div style="position:absolute;bottom:0;left:0;right:0;height:'+rpx+'px;background:var(--accent);border-radius:4px 4px 0 0;"></div></div>';
+h += '<div class="ph-bar-lbl">'+n.split(' ')[0]+' ('+r+'/'+m+')</div></div>';
+});
+h += '</div></div>';
+h += '</div>';
+return h;
+}
+</script>
+
+<script>
+function viewRanking(){
+var range = periodRange(STATE.periodo);
+var deals = filterDeals(DATA.deals).filter(function(d){ return inRange(dataParaMeta(d), range); });
+var now = new Date();
+var msDay = 86400000;
+var diasTotais = Math.max(1, Math.round((range.end - range.start)/msDay));
+var fimEfetivo = now < range.end ? now : range.end;
+var diasDecorridos = Math.min(diasTotais, Math.max(1, Math.round((fimEfetivo-range.start)/msDay)));
+var metasMapR = metasForRange(range);
+var rows = activeBdrs().map(function(n){
+var iv = deals.filter(function(d){ return d.bdr===n; });
+var realizado = iv.filter(function(d){ return d.reuniaoEfetiva==='Sim'; }).length;
+var meta = metasMapR[n]||0;
+var proRata = Math.round(meta * (diasDecorridos/diasTotais));
+return { nome:n, meta:meta, proRata:proRata, realizado:realizado, atingProRata:pct(realizado,proRata), atingMeta:pct(realizado,meta) };
+}).sort(function(a,b){ return b.realizado - a.realizado; });
+
+var h = '<div class="ph-section"><h3>Ranking &mdash; '+range.label+infoIcon('Ranking ordenado pelo total de reuniões Validadas (reuniao_efetiva = Sim) no período, comparado à meta de cada vendedor.')+'</h3><div class="desc">'+toISO(range.start)+' a '+toISO(new Date(range.end-1))+' &middot; Ating. Pro Rata = no ritmo esperado até hoje &middot; Ating. Meta = do total do período</div>';
+h += '<table class="ph-table"><thead><tr><th>Vendedor</th><th class="num">Meta</th><th class="num">Pro rata'+infoIcon('Meta do vendedor multiplicada pela proporção de dias já decorridos no período. Ex: passou metade do mês → pro rata = metade da meta.')+'</th><th class="num">Realizado</th><th class="num">Ating. Pro Rata'+infoIcon('Realizado dividido pelo Pro Rata. Mostra se o vendedor está no ritmo esperado até hoje — 100% significa que está em dia.')+'</th><th class="num">Ating. Meta'+infoIcon('Realizado dividido pela Meta total do período, sem ajuste por dias decorridos.')+'</th></tr></thead><tbody>';
+var totMeta=0, totProRata=0, totRealizado=0;
+rows.forEach(function(r,i){
+totMeta+=r.meta; totProRata+=r.proRata; totRealizado+=r.realizado;
+h += '<tr><td><span class="ph-rank">'+(i+1)+'</span>'+esc(r.nome)+'</td><td class="num ph-num">'+r.meta+'</td><td class="num ph-num">'+r.proRata+'</td><td class="num ph-num">'+r.realizado+'</td>';
+h += '<td class="num"><span class="ph-badge '+badgeClass(r.atingProRata)+'">'+r.atingProRata+'%</span></td>';
+h += '<td class="num"><span class="ph-badge '+badgeClass(r.atingMeta)+'">'+r.atingMeta+'%</span></td></tr>';
+});
+h += '<tr class="total"><td>Total</td><td class="num ph-num">'+totMeta+'</td><td class="num ph-num">'+totProRata+'</td><td class="num ph-num">'+totRealizado+'</td>';
+h += '<td class="num"><span class="ph-badge '+badgeClass(pct(totRealizado,totProRata))+'">'+pct(totRealizado,totProRata)+'%</span></td>';
+h += '<td class="num"><span class="ph-badge '+badgeClass(pct(totRealizado,totMeta))+'">'+pct(totRealizado,totMeta)+'%</span></td></tr>';
+h += '</tbody></table></div>';
+return h;
+}
+</script>
+
+<script>
+function countInRange(list, start, end){
+return list.filter(function(d){ return inRange(d.dataReuniao, {start:start, end:end}); }).length;
+}
+function viewEvolucao(){
+var deals = filterDeals(DATA.deals);
+var now = new Date();
+var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+var msDay = 86400000;
+
+var hoje = countInRange(deals, todayStart, new Date(+todayStart+msDay));
+var ontemStart = new Date(+todayStart - msDay);
+var ontem = countInRange(deals, ontemStart, todayStart);
+var deltaDia = ontem>0 ? Math.round(((hoje-ontem)/ontem)*100) : (hoje>0?100:0);
+
+var semanaStart = new Date(+todayStart - 6*msDay);
+var semana = countInRange(deals, semanaStart, new Date(+todayStart+msDay));
+var semanaPassadaStart = new Date(+semanaStart - 7*msDay);
+var semanaPassada = countInRange(deals, semanaPassadaStart, semanaStart);
+var deltaSemana = semanaPassada>0 ? Math.round(((semana-semanaPassada)/semanaPassada)*100) : (semana>0?100:0);
+
+var mesAtualR = periodRange('mes_atual');
+var mesPassadoR = periodRange('mes_passado');
+var mesAtual = countInRange(deals, mesAtualR.start, mesAtualR.end);
+var mesPassado = countInRange(deals, mesPassadoR.start, mesPassadoR.end);
+var deltaMes = mesPassado>0 ? Math.round(((mesAtual-mesPassado)/mesPassado)*100) : (mesAtual>0?100:0);
+
+var dias = [];
+for (var i=20;i>=0;i--){ dias.push(new Date(+todayStart - i*msDay)); }
+var counts = dias.map(function(d){ return countInRange(deals, d, new Date(+d+msDay)); });
+var maxC = Math.max.apply(null, counts.concat([1]));
+
+function deltaBadge(v){ return '<span class="ph-badge '+(v>=0?'good':'bad')+'">'+(v>=0?'▲ +':'▼ ')+v+'%</span>'; }
+
+var h = '';
+h += '<div class="ph-grid" style="grid-template-columns:repeat(3,1fr)">';
+h += '<div class="ph-card"><div class="lbl">&Delta; diário'+infoIcon('Reuniões marcadas hoje comparadas às marcadas ontem. Não considera o filtro de Período — é sempre hoje vs ontem.')+'</div><div class="val ph-num">'+hoje+'</div><div class="sub2">Hoje vs ontem: '+ontem+'</div>'+deltaBadge(deltaDia)+'</div>';
+h += '<div class="ph-card"><div class="lbl">&Delta; semanal'+infoIcon('Reuniões dos últimos 7 dias (incluindo hoje) comparadas aos 7 dias anteriores a esses.')+'</div><div class="val ph-num">'+semana+'</div><div class="sub2">Esta semana vs passada: '+semanaPassada+'</div>'+deltaBadge(deltaSemana)+'</div>';
+h += '<div class="ph-card"><div class="lbl">&Delta; mensal'+infoIcon('Reuniões do mês calendário atual comparadas ao mês calendário anterior completo.')+'</div><div class="val ph-num">'+mesAtual+'</div><div class="sub2">Mês atual vs anterior: '+mesPassado+'</div>'+deltaBadge(deltaMes)+'</div>';
+h += '</div>';
+
+h += '<div class="ph-section"><h3>Total diário de agendamentos'+infoIcon('Quantidade de reuniões marcadas em cada um dos últimos 21 dias corridos, pela data da reunião.')+'</h3><div class="desc">Últimos 21 dias</div><div class="ph-bars" style="align-items:flex-end;height:150px">';
+dias.forEach(function(d,i){
+var hpx = Math.round((counts[i]/maxC)*120)+4;
+h += '<div class="ph-bar-col"><div class="ph-bar-val">'+(counts[i]||'')+'</div><div style="width:100%;max-width:26px;height:'+hpx+'px;background:var(--accent);border-radius:3px 3px 0 0;"></div><div class="ph-bar-lbl">'+pad2(d.getDate())+'/'+pad2(d.getMonth()+1)+'</div></div>';
+});
+h += '</div></div>';
+return h;
+}
+</script>
+
+<script>
+var FUNNEL_STAGE_LABELS = ['Validou','Prospectou','Conectou','Qualificou','Virou passe'];
+function reachedIdxByCutoff(stageDates, cutoff){
+if (!stageDates) return -1;
+for (var j=stageDates.length-1; j>=0; j--){
+if (stageDates[j] && new Date(stageDates[j]) < cutoff) return j;
+}
+return -1;
+}
+function funnelCountsMes(list, cutoff){
+var base = FUNNEL_STAGE_LABELS.map(function(s,i){
+return { label:s, val: list.filter(function(d){ return reachedIdxByCutoff(d.stageDates, cutoff) >= i; }).length };
+});
+var validados = list.filter(function(d){ return reachedIdxByCutoff(d.stageDates, cutoff) >= 4 && d.reuniaoEfetiva==='Sim'; }).length;
+base.push({ label:'Validados', val: validados });
+return base;
+}
+function funnelCountsSafra(cohort){
+var base = FUNNEL_STAGE_LABELS.map(function(s,i){
+return { label:s, val: cohort.filter(function(d){ return d.reachedIdx >= i; }).length };
+});
+var validados = cohort.filter(function(d){ return d.reachedIdx >= 4 && d.reuniaoEfetiva==='Sim'; }).length;
+base.push({ label:'Validados', val: validados });
+return base;
+}
+function renderFunnelCol(counts){
+var max = counts.length ? counts[0].val : 1;
+if (max<=0) max=1;
+var h='';
+counts.forEach(function(c,i){
+var w = Math.max(6, pct(c.val,max));
+var drop = i>0 ? pct(c.val, counts[i-1].val) : null;
+h += '<div class="ph-funnel-row"><div class="ph-funnel-lbl">'+c.label+'</div><div class="ph-funnel-track"><div class="ph-funnel-fill" style="width:'+w+'%">'+c.val+'</div></div>';
+h += '<div class="ph-funnel-drop">'+(drop!==null ? drop+'%' : '')+'</div></div>';
+});
+return h;
+}
+function viewFunil(){
+var range = periodRange(STATE.periodo);
+var deals = filterDeals(DATA.deals);
+var safraCohort = deals.filter(function(d){ return inRange(d.dataCriacao, range); });
+var h = '<div class="ph-section"><h3>Funil de leads &mdash; Validação &rarr; Conectado &rarr; Agendado &rarr; Virou passe &rarr; Validados'+infoIcon('Funil mostra quantos negócios alcançaram cada etapa do processo: Validação → Prospecção → Conectado → Qualificação → Agendado (Virou passe) → Validados (a reunião realmente aconteceu).')+'</h3>';
+h += '<div class="desc">Período: '+toISO(range.start)+' a '+toISO(new Date(range.end-1))+' &middot; Visão Mês = funil acumulado de todos os negócios ativos, até o fim do período (foto geral do time, não é exclusivo deste mês) &middot; Visão Safra = apenas negócios criados dentro do período, e até onde cada um já chegou hoje</div>';
+h += '<div class="ph-cols2">';
+h += '<div><h3 style="font-size:.75rem;color:var(--text2)">VISÃO MÊS'+infoIcon('Foto geral e cumulativa: quantos negócios (de todos os tempos, ainda ativos ou já graduados) já alcançaram cada etapa até o fim do período selecionado. Não é exclusivo dos leads deste mês — é o funil inteiro do time até essa data.')+'</h3>'+renderFunnelCol(funnelCountsMes(deals, range.end))+'</div>';
+h += '<div><h3 style="font-size:.75rem;color:var(--text2)">VISÃO SAFRA ('+safraCohort.length+' criados no período)'+infoIcon('Olha só para os negócios CRIADOS dentro do período selecionado (a safra desse período) e mostra até onde cada um já chegou hoje. Por isso os números caem a cada etapa: é sempre a mesma população sendo medida.')+'</h3>'+renderFunnelCol(funnelCountsSafra(safraCohort))+'</div>';
+h += '</div></div>';
+h += '<div class="ph-foot"><strong>Atenção:</strong> houve correções manuais em massa de etapa entre 15/07 e 29/07/2026 no pipeline Outbound BDR. Isso pode ter deixado datas de entrada em etapa incompletas para negócios movidos manualmente nesse período, afetando levemente a Visão Mês de julho/2026.</div>';
+return h;
+}
+</script>
+
+<script>
+var TIPO_ORDER = ['Reunião On Line','Reunião Presencial','Reunião Agora'];
+var TIPO_LABEL = { 'Reunião On Line':'Online', 'Reunião Presencial':'Presencial', 'Reunião Agora':'Agora' };
+var TIPO_COLOR = { 'Reunião On Line':'#37cc4d', 'Reunião Presencial':'#e0a72e', 'Reunião Agora':'#6c8078' };
+var ROTA_PALETTE = ['#37cc4d','#e0a72e','#4ea1e2','#e2665f','#b57ce0','#2fbfae','#e28fc0','#8fa832','#c98a4a','#6c8078'];
+
+function countBy(list, keyFn){
+var map = {};
+list.forEach(function(d){
+var k = keyFn(d);
+if (!map[k]) map[k] = 0;
+map[k]++;
+});
+return map;
+}
+
+function buildDonutSvg(segments){
+var size=180, cx=size/2, cy=size/2, r=64, sw=28;
+var circumference = 2*Math.PI*r;
+var total = segments.reduce(function(s,x){ return s+x.value; }, 0) || 1;
+var offsetAcc = 0;
+var arcs = segments.filter(function(s){ return s.value>0; }).map(function(s){
+var frac = s.value/total;
+var len = frac*circumference;
+var dash = len+' '+(circumference-len);
+var dashoffset = circumference - offsetAcc;
+offsetAcc += len;
+var pctVal = Math.round(frac*1000)/10;
+return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.color+'" stroke-width="'+sw+'" stroke-dasharray="'+dash+'" stroke-dashoffset="'+dashoffset+'"><title>'+esc(s.label)+': '+s.value+' ('+pctVal+'%)</title></circle>';
+}).join('');
+return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" style="transform:rotate(-90deg)">'+arcs+
+'<text x="'+cx+'" y="'+cy+'" transform="rotate(90 '+cx+' '+cy+')" text-anchor="middle" dominant-baseline="middle" font-size="24" font-weight="700" fill="var(--text)">'+total+'</text></svg>';
+}
+
+function polarPoint(cx,cy,r,angleDeg){
+var a = (angleDeg-90) * Math.PI/180;
+return { x: cx + r*Math.cos(a), y: cy + r*Math.sin(a) };
+}
+
+function buildPieSvg(segments){
+var size=200, cx=size/2, cy=size/2, r=90;
+var total = segments.reduce(function(s,x){ return s+x.value; }, 0) || 1;
+var angle = 0;
+var paths = segments.filter(function(s){ return s.value>0; }).map(function(s){
+var frac = s.value/total;
+var sweep = frac*360;
+var start = polarPoint(cx,cy,r,angle);
+var end = polarPoint(cx,cy,r,angle+sweep);
+var largeArc = sweep>180 ? 1 : 0;
+var d = 'M'+cx+','+cy+' L'+start.x+','+start.y+' A'+r+','+r+' 0 '+largeArc+' 1 '+end.x+','+end.y+' Z';
+var pctVal = Math.round(frac*1000)/10;
+angle += sweep;
+return '<path d="'+d+'" fill="'+s.color+'" stroke="var(--bg)" stroke-width="1"><title>'+esc(s.label)+': '+s.value+' ('+pctVal+'%)</title></path>';
+}).join('');
+return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">'+paths+'</svg>';
+}
+
+function renderBreakdownList(segments){
+var total = segments.reduce(function(s,x){ return s+x.value; }, 0) || 1;
+return segments.filter(function(s){ return s.value>0; }).map(function(s){
+var pctVal = Math.round((s.value/total)*1000)/10;
+return '<div class="ph-legend" style="margin:.35rem 0"><span><i style="background:'+s.color+'"></i>'+esc(s.label)+' &middot; '+s.value+' ('+pctVal+'%)</span></div>';
+}).join('');
+}
+
+function viewTipoReuniao(){
+var range = periodRange(STATE.periodo);
+var deals = filterDeals(DATA.deals).filter(function(d){ return inRange(dataParaMeta(d), range); });
+var comTipo = deals.filter(function(d){ return d.tipoReuniao; });
+var semTipo = deals.length - comTipo.length;
+
+var h = '<div class="ph-section"><h3>Online vs Presencial'+infoIcon('Distribuição das reuniões do período pelo campo Tipo de Reunião (Online / Presencial / Agora), preenchido pelo BDR no HubSpot. Considera as mesmas reuniões de "Total no período" (data da reunião dentro do range selecionado).')+'</h3>';
+h += '<div class="desc">'+toISO(range.start)+' a '+toISO(new Date(range.end-1))+' &middot; '+comTipo.length+' de '+deals.length+' reuniões com tipo informado'+(semTipo>0 ? ' ('+semTipo+' sem tipo)' : '')+'</div>';
+
+if (comTipo.length === 0) {
+h += '<div class="desc">Sem reuniões com tipo de reunião informado para o período selecionado.</div></div>';
+return h;
+}
+
+var porTipo = countBy(comTipo, function(d){ return d.tipoReuniao; });
+var tipoSegments = TIPO_ORDER.map(function(k){ return { key:k, label:TIPO_LABEL[k], color:TIPO_COLOR[k], value: porTipo[k]||0 }; });
+
+h += '<div class="ph-cols2">';
+h += '<div style="display:flex;align-items:center;gap:1.2rem">'+buildDonutSvg(tipoSegments)+'<div>'+renderBreakdownList(tipoSegments)+'</div></div>';
+
+h += '<div>';
+h += '<h3 style="font-size:.75rem;color:var(--text2)">Composição por pré-vendedor</h3><div class="ph-bars">';
+var maxBdr = 1;
+var bdrsPresentes = activeBdrs().filter(function(n){ return comTipo.some(function(d){ return d.bdr===n; }); });
+bdrsPresentes.forEach(function(n){ var c = comTipo.filter(function(d){ return d.bdr===n; }).length; if (c>maxBdr) maxBdr = c; });
+bdrsPresentes.forEach(function(n){
+var iv = comTipo.filter(function(d){ return d.bdr===n; });
+var tot = iv.length;
+var hpx = Math.round((tot/maxBdr)*130);
+var tipTxt = TIPO_ORDER.map(function(k){ return TIPO_LABEL[k]+': '+iv.filter(function(d){return d.tipoReuniao===k;}).length; }).join(' · ');
+h += '<div class="ph-bar-col" title="'+esc(n)+' — '+tipTxt+'"><div class="ph-bar-val">'+tot+'</div><div class="ph-bar-stack" style="height:'+hpx+'px">';
+TIPO_ORDER.slice().reverse().forEach(function(k){
+var c = iv.filter(function(d){ return d.tipoReuniao===k; }).length;
+if (c>0) h += '<div style="height:'+Math.round((c/Math.max(tot,1))*100)+'%;background:'+TIPO_COLOR[k]+'"></div>';
+});
+h += '</div><div class="ph-bar-lbl">'+n.split(' ')[0]+'</div></div>';
+});
+h += '</div></div>';
+h += '</div></div>';
+
+var graduados = deals.filter(function(d){ return d.execVendas; });
+var porExec = countBy(graduados, function(d){ return d.execVendas; });
+var execNomes = Object.keys(porExec).sort(function(a,b){ return porExec[b]-porExec[a]; });
+h += '<div class="ph-section"><h3>Reuniões por Executivo de Vendas'+infoIcon('Reuniões do período cujo negócio já migrou para o pipeline Vendas, agrupadas pelo dono atual do negócio (Executivo de Vendas que recebeu o passe do BDR).')+'</h3><div class="desc">'+graduados.length+' de '+deals.length+' reuniões já graduadas para o pipeline Vendas</div>';
+if (execNomes.length === 0) {
+h += '<div class="desc">Nenhuma reunião do período já graduada para o pipeline Vendas.</div></div>';
+} else {
+var maxExec = Math.max.apply(null, execNomes.map(function(n){ return porExec[n]; }).concat([1]));
+h += '<div class="ph-bars">';
+execNomes.forEach(function(n){
+var c = porExec[n];
+var hpx = Math.round((c/maxExec)*130);
+h += '<div class="ph-bar-col" title="'+esc(n)+' — '+c+' reuniões"><div class="ph-bar-val">'+c+'</div><div style="width:100%;max-width:52px;height:'+hpx+'px;background:var(--accent);border-radius:4px 4px 0 0;"></div><div class="ph-bar-lbl">'+esc(n.split(' ')[0])+'</div></div>';
+});
+h += '</div></div>';
+}
+
+var porRotaRaw = countBy(deals, function(d){ return (d.rota && String(d.rota).trim()) || 'Sem rota'; });
+var rotaNomes = Object.keys(porRotaRaw).sort(function(a,b){ return porRotaRaw[b]-porRotaRaw[a]; });
+var TOP_ROTAS = 8;
+var rotaTop = rotaNomes.slice(0, TOP_ROTAS);
+var rotaOutrasTotal = rotaNomes.slice(TOP_ROTAS).reduce(function(s,n){ return s+porRotaRaw[n]; }, 0);
+var rotaSegments = rotaTop.map(function(n,i){ return { key:n, label:n, color:ROTA_PALETTE[i % ROTA_PALETTE.length], value: porRotaRaw[n] }; });
+if (rotaOutrasTotal>0) rotaSegments.push({ key:'Outras', label:'Outras rotas', color:'#3a4a41', value: rotaOutrasTotal });
+
+h += '<div class="ph-section"><h3>Reuniões por Rota'+infoIcon('Reuniões do período agrupadas pela propriedade Rota do negócio. Mostra as '+TOP_ROTAS+' rotas com mais reuniões; o restante entra em "Outras rotas".')+'</h3><div class="desc">'+toISO(range.start)+' a '+toISO(new Date(range.end-1))+'</div>';
+h += '<div class="ph-cols2">';
+h += '<div><div class="ph-bars">';
+var maxRota = Math.max.apply(null, rotaSegments.map(function(s){ return s.value; }).concat([1]));
+rotaSegments.forEach(function(s){
+var hpx = Math.round((s.value/maxRota)*130);
+h += '<div class="ph-bar-col" title="'+esc(s.label)+' — '+s.value+' reuniões"><div class="ph-bar-val">'+s.value+'</div><div style="width:100%;max-width:52px;height:'+hpx+'px;background:'+s.color+';border-radius:4px 4px 0 0;"></div><div class="ph-bar-lbl">'+esc(s.label)+'</div></div>';
+});
+h += '</div></div>';
+h += '<div style="display:flex;align-items:center;gap:1.2rem">'+buildPieSvg(rotaSegments)+'<div>'+renderBreakdownList(rotaSegments)+'</div></div>';
+h += '</div></div>';
+
+return h;
+}
+</script>
+
+<script>
+function monthKey(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1); }
+function monthLabel(k){ var p=k.split('-'); var meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return meses[parseInt(p[1],10)-1]+'/'+p[0].slice(2); }
+function renderVendasTable(title, desc, deals, buckets, bdrs, dateField){
+var h = '<div class="ph-section"><h3>'+title+'</h3><div class="desc">'+desc+'</div>';
+h += '<table class="ph-table"><thead><tr><th>Vendedor</th>';
+buckets.forEach(function(b){ h += '<th class="num">'+monthLabel(b)+'</th>'; });
+h += '<th class="num">Total</th></tr></thead><tbody>';
+var colCount = buckets.map(function(){return 0;});
+var colValor = buckets.map(function(){return 0;});
+var grandCount = 0, grandValor = 0;
+bdrs.forEach(function(n){
+var iv = deals.filter(function(d){ return d.bdr===n && d.isVenda; });
+var rowCount = 0, rowValor = 0;
+var cells = buckets.map(function(b,i){
+var sub = iv.filter(function(d){ return d[dateField] && monthKey(new Date(d[dateField]))===b; });
+var c = sub.length, v = sub.reduce(function(s,d){ return s+d.valor; },0);
+colCount[i]+=c; colValor[i]+=v; rowCount+=c; rowValor+=v;
+return { c:c, v:v };
+});
+grandCount += rowCount; grandValor += rowValor;
+h += '<tr><td>'+esc(n)+'</td>';
+cells.forEach(function(cell){ h += '<td class="num ph-num">'+cell.c+(cell.c ? '<br><span style="color:var(--text3);font-size:.68rem">'+fmtMoney(cell.v)+'</span>' : '')+'</td>'; });
+h += '<td class="num ph-num" style="font-weight:700">'+rowCount+'<br><span style="color:var(--text3);font-size:.68rem;font-weight:400">'+fmtMoney(rowValor)+'</span></td></tr>';
+});
+h += '<tr class="total"><td>Total</td>';
+colCount.forEach(function(c,i){ h += '<td class="num ph-num">'+c+'<br><span style="color:var(--text3);font-size:.68rem;font-weight:400">'+fmtMoney(colValor[i])+'</span></td>'; });
+h += '<td class="num ph-num">'+grandCount+'<br><span style="color:var(--text3);font-size:.68rem;font-weight:400">'+fmtMoney(grandValor)+'</span></td></tr>';
+h += '</tbody></table></div>';
+return h;
+}
+function viewCohort(){
+var deals = filterDeals(DATA.deals);
+var now = new Date();
+var buckets = [];
+for (var i=3;i>=0;i--){ buckets.push(monthKey(new Date(now.getFullYear(), now.getMonth()-i, 1))); }
+var bdrs = activeBdrs();
+var h = '<div class="ph-section"><h3>Cohort &mdash; agendamentos por mês de criação do lead'+infoIcon('Agrupa os negócios pelo mês em que foram CRIADOS no HubSpot (não pelo mês da reunião), para comparar a produtividade de cada safra de leads, por vendedor.')+'</h3><div class="desc">Linhas = vendedor &middot; Colunas = mês em que o negócio foi criado</div>';
+h += '<table class="ph-table"><thead><tr><th>Vendedor</th>';
+buckets.forEach(function(b){ h += '<th class="num">'+monthLabel(b)+'</th>'; });
+h += '<th class="num">Total</th></tr></thead><tbody>';
+var colTotals = buckets.map(function(){return 0;});
+var grandTotal = 0;
+bdrs.forEach(function(n){
+var iv = deals.filter(function(d){ return d.bdr===n; });
+var rowTotal = 0;
+var cells = buckets.map(function(b,i){
+var c = iv.filter(function(d){ return d.dataCriacao && monthKey(new Date(d.dataCriacao))===b; }).length;
+colTotals[i]+=c; rowTotal+=c;
+return c;
+});
+grandTotal += rowTotal;
+h += '<tr><td>'+esc(n)+'</td>';
+cells.forEach(function(c){ h += '<td class="num ph-num">'+c+'</td>'; });
+h += '<td class="num ph-num" style="font-weight:700">'+rowTotal+'</td></tr>';
+});
+h += '<tr class="total"><td>Total</td>';
+colTotals.forEach(function(c){ h += '<td class="num ph-num">'+c+'</td>'; });
+h += '<td class="num ph-num">'+grandTotal+'</td></tr>';
+h += '</tbody></table></div>';
+h += renderVendasTable('MRR &mdash; por mês de agendamento'+infoIcon('Segmenta as vendas fechadas pelo mês em que a REUNIÃO foi agendada, não importa quando o contrato foi assinado depois. Útil para medir a qualidade das reuniões marcadas em cada mês.'), 'Vendas geradas por reuniões agendadas em cada mês, mesmo que o fechamento tenha ocorrido depois', deals, buckets, bdrs, 'dataReuniao');
+h += renderVendasTable('MRR &mdash; por mês de venda (fechamento)'+infoIcon('Segmenta as vendas fechadas pelo mês em que o CONTRATO foi assinado, não importa quando a reunião original aconteceu. Útil para medir o faturamento real que entrou em cada mês.'), 'Vendas fechadas em cada mês, independente de quando a reunião foi agendada', deals, buckets, bdrs, 'dataFechamento');
+return h;
+}
+</script>
+<script>
+renderShell();
+</script>
+
