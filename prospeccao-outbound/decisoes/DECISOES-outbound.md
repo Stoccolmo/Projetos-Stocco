@@ -4,6 +4,25 @@ Registro vivo das decisões, achados e pendências do painel de gestão Outbound
 
 ---
 
+## 09/08/2026 — Botão de atualização manual e rotas sem agrupamento
+
+### Botão "Atualizar agora"
+- Adicionado no canto superior direito do cabeçalho. Chama `refreshNow()` no backend via `google.script.run`.
+- `refreshNow()` usa `LockService.getScriptLock()` (tryLock 500ms) para impedir que dois cliques concorrentes (de usuários diferentes) disparem `buildDashboardData()` ao mesmo tempo — a mesma razão pela qual o cache existe (rate limit do HubSpot com os 4 BDRs). Se já tem uma atualização rodando, retorna `{busy:true}` e o front avisa o usuário.
+- Front mostra "Atualizando... (até 20s)" e desabilita o botão durante a chamada; ao voltar, recalcula `BDR_NAMES`/`ORIGEM_NAMES` (`recomputeDerived()`) e re-renderiza tudo com `renderShell()`.
+
+### Reuniões por Rota — removido o agrupamento "Outras rotas"
+- Antes: top 8 rotas + resto agrupado em "Outras rotas" (bucket). Rodrigo pediu o número exato de cada rota, sem bucket.
+- Fix: `rotaSegments` agora mapeia todas as rotas distintas do período, sem slice/top-N. Bar chart e pizza mostram cada rota individualmente (cores do `ROTA_PALETTE` ciclam se houver mais rotas que cores disponíveis — puramente cosmético, não afeta os números).
+
+### Achado técnico — encoding ao colar via clipboard
+- Publicar via `Set-Clipboard`/`Ctrl+V` no editor do Apps Script quebrou acentuação (ex. "mês" → "mÃ¡s") quando o arquivo fonte foi lido no PowerShell sem especificar `-Encoding UTF8` explicitamente no `Get-Content -Raw`. Sem o parâmetro, o PowerShell 5.1 usa o codepage padrão do sistema pra interpretar o arquivo UTF-8, corrompendo caracteres multibyte.
+- Fix pontual: sempre usar `Get-Content -Raw -Encoding UTF8` antes de `Set-Clipboard` ao publicar conteúdo com acentuação neste projeto.
+- Achado secundário: a área de transferência usada é a do Windows real do usuário (compartilhada com o desktop) — se Rodrigo copiar algo em paralelo, o conteúdo pretendido pode ser sobrescrito antes do paste. Sempre verificar o tamanho/conteúdo do clipboard imediatamente antes de colar, e o conteúdo do editor imediatamente depois, antes de salvar.
+
+### Pendências
+- [ ] Nenhuma — validado ao vivo (botão testado end-to-end, timestamp atualizou; aba Online vs Presencial confirmada sem "Outras rotas").
+
 ## 07/08/2026 — Meta por mês, data efetiva como critério de crédito, e aba Online vs Presencial
 
 ### Contexto

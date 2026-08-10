@@ -1,4 +1,4 @@
-﻿// ===== Painel Outbound - Pre-Vendas =====
+// ===== Painel Outbound - Pre-Vendas =====
 var PIPELINE_OUTBOUND = '905667466';
 var STAGE_OUTBOUND = { VALIDACAO: '1371354117', PROSPECCAO: '1371354118', CONECTADO: '1371354119', QUALIFICACAO: '1371354120', AGENDADO: '1371354121', REAGENDAMENTO: '1371354122', PERDIDO: '1371354124' };
 var PIPELINE_VENDAS = '79388826';
@@ -191,6 +191,19 @@ var file = getOrCreateCacheFile_();
 file.setContent(JSON.stringify(data));
 Logger.log('Cache atualizado: ' + data.deals.length + ' deals em ' + data.geradoEm);
 return data;
+}
+
+function refreshNow() {
+var lock = LockService.getScriptLock();
+if (!lock.tryLock(500)) {
+return { busy: true };
+}
+try {
+var data = refreshCache();
+return { busy: false, data: data };
+} finally {
+lock.releaseLock();
+}
 }
 
 function readCache_() {

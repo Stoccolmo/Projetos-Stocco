@@ -1,4 +1,4 @@
-﻿<style>
+<style>
 :root {
 --bg:#0c1210; --surface:#121a17; --surface2:#17211d; --border:#233028;
 --text:#eaf3ee; --text2:#9db3a8; --text3:#6c8078;
@@ -57,6 +57,9 @@ table.ph-table tr.total td { font-weight:700; background:var(--surface2); }
 .ph-info { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; border:1px solid var(--text3); color:var(--text3); font-size:.62rem; font-weight:700; margin-left:.4rem; cursor:pointer; user-select:none; vertical-align:middle; line-height:1; }
 .ph-info:hover { border-color:var(--accent); color:var(--accent); }
 .ph-popover { position:absolute; z-index:50; max-width:300px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:.75rem .85rem; font-size:.75rem; line-height:1.55; color:var(--text2); box-shadow:0 12px 32px rgba(0,0,0,.5); }
+.ph-refresh-btn { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.45rem .9rem; font-size:.75rem; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap; }
+.ph-refresh-btn:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.ph-refresh-btn:disabled { opacity:.6; cursor:default; }
 @media (max-width:900px){ .ph-cols2{ grid-template-columns:1fr; } }
 </style>
 
@@ -64,12 +67,17 @@ table.ph-table tr.total td { font-weight:700; background:var(--surface2); }
 
 <script>
 var DATA = <?!= data ?>;
-var BDR_NAMES = (function(){
+var BDR_NAMES = [];
+var ORIGEM_NAMES = [];
+function recomputeDerived(){
+BDR_NAMES = (function(){
 var names = new Set();
 Object.keys(DATA.metas || {}).forEach(function(mk){ Object.keys(DATA.metas[mk] || {}).forEach(function(n){ names.add(n); }); });
 return names.size ? Array.from(names).sort() : Array.from(new Set(DATA.deals.map(function(d){return d.bdr;}))).sort();
 })();
-var ORIGEM_NAMES = Array.from(new Set(DATA.deals.map(function(d){return d.origem || 'Nenhuma';}))).sort();
+ORIGEM_NAMES = Array.from(new Set(DATA.deals.map(function(d){return d.origem || 'Nenhuma';}))).sort();
+}
+recomputeDerived();
 var HUBSPOT_BASE = 'https://app.hubspot.com/contacts/23636141/record/0-3/';
 var COLOR = { good:'#37cc4d', warn:'#e0a72e', bad:'#e2665f' };
 var _nowInit = new Date();
@@ -150,7 +158,8 @@ var range = periodRange(STATE.periodo);
 var bdrOptions = BDR_NAMES.map(function(n){ return '<option value="'+esc(n)+'"'+(STATE.vendedor===n?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
 var html = '';
 html += '<div class="ph-header"><div><h1>Outbound &mdash; Painel de Gestão</h1><div class="sub">Integrado com HubSpot &middot; ao vivo</div></div>';
-html += '<div class="updated">Atualizado '+new Date(DATA.geradoEm).toLocaleString('pt-BR')+'</div></div>';
+html += '<div style="display:flex;align-items:center;gap:.8rem"><div class="updated" id="phUpdated">Atualizado '+new Date(DATA.geradoEm).toLocaleString('pt-BR')+'</div>';
+html += '<button class="ph-refresh-btn" id="btnRefresh" title="Busca os dados mais recentes do HubSpot agora, sem esperar o próximo gatilho automático (08h/12h/18h/20h). Pode levar até 20 segundos.">Atualizar agora</button></div></div>';
 html += '<div class="ph-filters">';
 html += '<label>Período <select id="fPeriodo">';
 [['mes_atual','Mês atual'],['mes_passado','Mês passado'],['ultimos_7','Últimos 7 dias'],['tudo','Tudo (desde jun/26)'],['custom','Personalizado']].forEach(function(o){
@@ -174,6 +183,26 @@ html += '</div>';
 html += '<div id="phTabBody"></div>';
 document.getElementById('phApp').innerHTML = html;
 
+document.getElementById('btnRefresh').addEventListener('click', function(){
+var btn = this;
+var original = 'Atualizar agora';
+btn.disabled = true;
+btn.textContent = 'Atualizando... (até 20s)';
+google.script.run.withSuccessHandler(function(resp){
+if (resp && resp.busy) {
+btn.textContent = 'Já tem uma atualização rolando, aguarda um pouco';
+setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 5000);
+return;
+}
+DATA = resp.data;
+recomputeDerived();
+renderShell();
+}).withFailureHandler(function(err){
+btn.textContent = 'Erro ao atualizar — tenta de novo';
+btn.disabled = false;
+setTimeout(function(){ btn.textContent = original; }, 5000);
+}).refreshNow();
+});
 document.getElementById('fPeriodo').addEventListener('change', function(e){ STATE.periodo = e.target.value; renderShell(); });
 document.getElementById('fVendedor').addEventListener('change', function(e){ STATE.vendedor = e.target.value; renderTab(); });
 document.getElementById('fOrigem').addEventListener('change', function(e){ STATE.origem = e.target.value; renderTab(); });
@@ -616,13 +645,9 @@ h += '</div></div>';
 
 var porRotaRaw = countBy(deals, function(d){ return (d.rota && String(d.rota).trim()) || 'Sem rota'; });
 var rotaNomes = Object.keys(porRotaRaw).sort(function(a,b){ return porRotaRaw[b]-porRotaRaw[a]; });
-var TOP_ROTAS = 8;
-var rotaTop = rotaNomes.slice(0, TOP_ROTAS);
-var rotaOutrasTotal = rotaNomes.slice(TOP_ROTAS).reduce(function(s,n){ return s+porRotaRaw[n]; }, 0);
-var rotaSegments = rotaTop.map(function(n,i){ return { key:n, label:n, color:ROTA_PALETTE[i % ROTA_PALETTE.length], value: porRotaRaw[n] }; });
-if (rotaOutrasTotal>0) rotaSegments.push({ key:'Outras', label:'Outras rotas', color:'#3a4a41', value: rotaOutrasTotal });
+var rotaSegments = rotaNomes.map(function(n,i){ return { key:n, label:n, color:ROTA_PALETTE[i % ROTA_PALETTE.length], value: porRotaRaw[n] }; });
 
-h += '<div class="ph-section"><h3>Reuniões por Rota'+infoIcon('Reuniões do período agrupadas pela propriedade Rota do negócio. Mostra as '+TOP_ROTAS+' rotas com mais reuniões; o restante entra em "Outras rotas".')+'</h3><div class="desc">'+toISO(range.start)+' a '+toISO(new Date(range.end-1))+'</div>';
+h += '<div class="ph-section"><h3>Reuniões por Rota'+infoIcon('Reuniões do período agrupadas pela propriedade Rota do negócio — todas as rotas com pelo menos uma reunião.')+'</h3><div class="desc">'+toISO(range.start)+' a '+toISO(new Date(range.end-1))+'</div>';
 h += '<div class="ph-cols2">';
 h += '<div><div class="ph-bars">';
 var maxRota = Math.max.apply(null, rotaSegments.map(function(s){ return s.value; }).concat([1]));
