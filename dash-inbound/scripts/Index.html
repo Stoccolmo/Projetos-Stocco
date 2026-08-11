@@ -1,0 +1,3551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<base target="_top">
+<title>Dashboard Pré-Vendas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+  // chartjs-plugin-datalabels via CDN se auto-registra em TODOS os charts.
+  // Queremos opt-in per-chart (só no Atingimento da Meta), então desregistra agora.
+  // O chart que precisa ativa via `plugins: [ChartDataLabels]` na construção.
+  if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+    try { Chart.unregister(ChartDataLabels); } catch (e) {}
+  }
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    /* Gabriel night-vision palette */
+    --bg:        #08120C;          /* near-black with green undertone */
+    --surface:   #0D2B1A;          /* forest green — primary surface */
+    --surface2:  #08200F;          /* deeper green — nested surfaces */
+    --border:    rgba(0,255,65,0.12);
+    --text:      #F2FFF6;          /* near-white with green tint */
+    --muted:     #6E8A78;          /* desaturated green-grey */
+    --accent:    #00FF41;          /* neon green — the brand pulse */
+    --green:     #00FF41;          /* validados / sucesso (= accent) */
+    --amber:     #FFC233;          /* a validar / alerta */
+    --red:       #FF3333;          /* não válidos / erro / rec */
+    --font:      'Inter', system-ui, sans-serif;
+    --mono:      'JetBrains Mono', ui-monospace, monospace;
+
+    /* derivatives */
+    --accent-dim:   rgba(0,255,65,0.18);
+    --accent-glow:  0 0 24px rgba(0,255,65,0.18);
+    --hairline:     rgba(0,255,65,0.30);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  body {
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(0,255,65,0.06), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(0,255,65,0.04), transparent 50%);
+    background-attachment: fixed;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 32px; border-bottom: 1px solid var(--border);
+    background: rgba(8,18,12,0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 36px; height: 36px;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    box-shadow: var(--accent-glow);
+  }
+  .logo::before {
+    content: ""; width: 18px; height: 18px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1a3322 0%, #08120C 70%);
+    border: 1.5px solid var(--accent);
+  }
+  .logo::after {
+    content: ""; position: absolute; top: 7px; right: 7px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--red);
+    box-shadow: 0 0 6px var(--red);
+    animation: rec-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes rec-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+  .topbar-title {
+    font-size: 14px; font-weight: 700; letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .topbar-sub {
+    font-size: 10px; color: var(--muted); margin-top: 2px;
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500;
+  }
+  .topbar-right { display: flex; align-items: center; gap: 14px; }
+
+  /* BOTÃO ATUALIZAR */
+  #btn-update {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 16px; border-radius: 8px; border: 1px solid var(--accent); cursor: pointer;
+    font-family: var(--font); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    background: var(--accent); color: #04140A;
+    transition: all 0.2s cubic-bezier(0.2,0.8,0.2,1);
+    position: relative; overflow: hidden;
+  }
+  #btn-update:hover:not(:disabled) {
+    filter: brightness(1.1);
+    box-shadow: 0 0 0 3px rgba(0,255,65,0.18), 0 0 20px rgba(0,255,65,0.4);
+  }
+  #btn-update:active:not(:disabled) { transform: scale(0.98); filter: brightness(0.96); }
+  #btn-update:disabled { opacity: 0.55; cursor: not-allowed; }
+  #btn-update .spinner {
+    width: 13px; height: 13px; border: 2px solid rgba(4,20,10,0.25);
+    border-top-color: #04140A; border-radius: 50%;
+    animation: spin 0.7s linear infinite; display: none;
+  }
+  #btn-update.loading .spinner { display: block; }
+  #btn-update.loading .btn-icon { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .last-update {
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500;
+  }
+  .last-update strong { color: var(--accent); font-weight: 700; font-family: var(--mono); letter-spacing: 0; text-transform: none; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    padding: 12px 22px; border-radius: 10px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    display: flex; align-items: center; gap: 10px; z-index: 999;
+    transition: transform 0.25s cubic-bezier(0.2,0.8,0.2,1); pointer-events: none;
+    backdrop-filter: blur(8px);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.success {
+    background: rgba(13,43,26,0.95); border: 1px solid var(--accent); color: var(--accent);
+    box-shadow: 0 0 32px rgba(0,255,65,0.25);
+  }
+  #toast.error {
+    background: rgba(43,13,13,0.95); border: 1px solid var(--red); color: var(--red);
+    box-shadow: 0 0 32px rgba(255,51,51,0.25);
+  }
+  .toast-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* MODAL */
+  #modal-overlay {
+    position: fixed; inset: 0; background: rgba(4,12,8,0.75); z-index: 200;
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px);
+  }
+  #modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px;
+    padding: 28px 32px; width: 400px; max-width: 90vw;
+    box-shadow: 0 0 48px rgba(0,255,65,0.18), 0 20px 60px rgba(0,0,0,0.6);
+    position: relative; overflow: hidden;
+  }
+  .modal::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  .modal h3 {
+    font-size: 13px; font-weight: 900; margin-bottom: 10px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .modal p { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 22px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-cancel {
+    padding: 9px 16px; border-radius: 7px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    font-family: var(--font); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-cancel:hover { border-color: var(--hairline); color: var(--text); }
+  .btn-confirm {
+    padding: 9px 18px; border-radius: 7px; border: 1px solid var(--accent);
+    background: var(--accent); color: #04140A;
+    font-family: var(--font); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-confirm:hover { filter: brightness(1.1); box-shadow: 0 0 0 3px rgba(0,255,65,0.18); }
+
+  /* LOADING OVERLAY */
+  #loading-overlay {
+    position: fixed; inset: 0; background: rgba(8,18,12,0.92); z-index: 300;
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  #loading-overlay .spinner {
+    display: block; margin: 0 auto 18px; width: 32px; height: 32px;
+    border: 2px solid rgba(0,255,65,0.15); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    box-shadow: 0 0 20px rgba(0,255,65,0.3);
+  }
+  #loading-msg {
+    font-size: 11px; color: var(--accent); text-align: center;
+    text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;
+  }
+
+  /* LAYOUT PRINCIPAL */
+  main { padding: 24px 28px; max-width: 1800px; margin: 0 auto; }
+
+  /* FILTROS */
+  .filters {
+    display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; align-items: center;
+    padding: 14px 18px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .filter-label {
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+  }
+  .filter-select, .date-input {
+    padding: 8px 12px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text);
+    font-family: var(--font); font-size: 12px; font-weight: 500; cursor: pointer; outline: none;
+    transition: all 0.15s;
+  }
+  .filter-select:hover, .date-input:hover { border-color: var(--hairline); }
+  .filter-select:focus, .date-input:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,255,65,0.12);
+  }
+
+  /* TOM-SELECT — adapta o widget ao tema night-vision */
+  .ts-wrapper.filter-multi { min-width: 180px; max-width: 280px; }
+  .ts-wrapper.filter-multi .ts-control {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 5px 30px 5px 10px; min-height: 32px;
+    font-family: var(--font); font-size: 12px; color: var(--text);
+    cursor: pointer;
+  }
+  .ts-wrapper.filter-multi.focus .ts-control,
+  .ts-wrapper.filter-multi:hover .ts-control { border-color: var(--hairline); }
+  .ts-wrapper.filter-multi.focus .ts-control { box-shadow: 0 0 0 3px rgba(0,255,65,0.12); }
+  .ts-wrapper.filter-multi .ts-control input { color: var(--text); font-size: 12px; }
+  .ts-wrapper.filter-multi .ts-control input::placeholder { color: var(--muted); }
+  .ts-wrapper.filter-multi .ts-control .item {
+    background: rgba(0,255,65,0.12); color: var(--accent);
+    border: 1px solid rgba(0,255,65,0.3); border-radius: 4px;
+    padding: 2px 6px; font-size: 11px; font-weight: 700;
+    margin: 2px 4px 2px 0;
+  }
+  .ts-wrapper.filter-multi .ts-control .item .remove {
+    color: var(--accent); border-left: 1px solid rgba(0,255,65,0.3);
+    padding-left: 4px; margin-left: 4px;
+  }
+  .ts-wrapper.filter-multi .ts-dropdown {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 7px; color: var(--text); font-family: var(--font);
+    margin-top: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .ts-wrapper.filter-multi .ts-dropdown .option {
+    padding: 7px 12px; font-size: 12px; color: var(--text);
+  }
+  .ts-wrapper.filter-multi .ts-dropdown .option:hover,
+  .ts-wrapper.filter-multi .ts-dropdown .option.active {
+    background: rgba(0,255,65,0.08); color: var(--accent);
+  }
+  .ts-wrapper.filter-multi .ts-dropdown .option.selected {
+    background: rgba(0,255,65,0.12); color: var(--accent);
+  }
+  #custom-date-range { display: none; gap: 8px; align-items: center; }
+
+  /* TABS */
+  .tabs {
+    display: flex; gap: 4px; border-bottom: 1px solid var(--border);
+    margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .tab {
+    padding: 11px 18px; font-size: 11px; font-weight: 700; color: var(--muted);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: all 0.15s cubic-bezier(0.2,0.8,0.2,1);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    border-radius: 0;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent); border-bottom-color: var(--accent);
+    text-shadow: 0 0 12px rgba(0,255,65,0.5);
+  }
+
+  /* MÉTRICAS */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .metric {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; transition: all 0.2s cubic-bezier(0.2,0.8,0.2,1);
+    position: relative; overflow: hidden;
+  }
+  .metric::before {
+    content: ""; position: absolute; top: 0; left: 0; width: 3px; height: 0;
+    background: var(--accent); transition: height 0.25s cubic-bezier(0.2,0.8,0.2,1);
+  }
+  .metric:hover { border-color: var(--hairline); box-shadow: var(--accent-glow); }
+  .metric:hover::before { height: 100%; }
+  .metric-label {
+    font-size: 10px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 10px; font-weight: 700;
+  }
+  .metric-value {
+    font-size: 32px; font-weight: 900; color: var(--text); line-height: 1;
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .metric-sub {
+    font-size: 11px; color: var(--muted); margin-top: 6px;
+    font-family: var(--mono);
+  }
+  .metric-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; margin-top: 7px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+  }
+  .badge-green { background: rgba(0,255,65,0.12); color: var(--accent); border: 1px solid rgba(0,255,65,0.3); }
+  .badge-amber { background: rgba(255,194,51,0.12); color: var(--amber); border: 1px solid rgba(255,194,51,0.3); }
+  .badge-red   { background: rgba(255,51,51,0.12);  color: var(--red);   border: 1px solid rgba(255,51,51,0.3); }
+
+  /* CHARTS */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-grid.single { grid-template-columns: 1fr; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px;
+    transition: border-color 0.2s;
+  }
+  .chart-card:hover { border-color: var(--hairline); }
+  .chart-card.span2 { grid-column: 1 / -1; }
+  .chart-card-title {
+    font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 14px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .chart-card-sub {
+    font-size: 11px; color: var(--muted); margin-top: -10px; margin-bottom: 14px;
+    font-family: var(--mono);
+  }
+  .chart-wrap { position: relative; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--muted); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* TABELA */
+  .table-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; margin-bottom: 24px;
+  }
+  .table-head {
+    display: grid; padding: 12px 20px;
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .table-row {
+    display: grid; padding: 14px 20px; border-bottom: 1px solid var(--border);
+    font-size: 13px; color: var(--text);
+    transition: background 0.15s; align-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .table-row:last-child { border-bottom: none; }
+  .table-row:hover { background: var(--surface2); }
+  .grid-rank { grid-template-columns: 32px 2fr 80px 80px 80px 80px 90px; }
+  .grid-rank-mtd { grid-template-columns: 36px 2fr 80px 90px 110px 100px; }
+
+  .rank-num { font-size: 13px; color: var(--muted); font-weight: 700; font-family: var(--mono); }
+  .rank-1 .rank-num { color: var(--accent); text-shadow: 0 0 8px rgba(0,255,65,0.5); }
+  .rank-2 .rank-num { color: #aab2c8; }
+  .rank-3 .rank-num { color: #cd7f32; }
+
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%; display: inline-flex;
+    align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+    flex-shrink: 0; letter-spacing: 0.02em;
+  }
+  .seller-cell { display: flex; align-items: center; gap: 12px; }
+  .seller-name { font-size: 13px; font-weight: 500; }
+
+  .progress-bar-bg {
+    height: 5px; border-radius: 3px; background: var(--surface2);
+    margin-top: 4px; overflow: hidden;
+  }
+  .progress-bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+
+  /* ============================================================
+     FUNIL VS META — redesign
+     SVG funnel + side-by-side Mês × Safra comparison.
+     ============================================================ */
+  .funil-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .funil-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px 16px;
+    transition: all 0.2s cubic-bezier(0.2,0.8,0.2,1);
+    position: relative; overflow: hidden;
+  }
+  .funil-card:hover { border-color: var(--hairline); box-shadow: var(--accent-glow); }
+
+  .funil-card.is-total {
+    background: linear-gradient(180deg, rgba(0,255,65,0.06) 0%, var(--surface) 60%);
+    border-color: var(--hairline);
+    grid-column: 1 / -1;
+  }
+  .funil-card.is-total::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .funil-card-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .funil-card-title {
+    font-size: 13px; font-weight: 700; color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .funil-card-tag {
+    margin-left: auto; padding: 3px 9px; border-radius: 999px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    background: rgba(0,255,65,0.12); color: var(--accent);
+    border: 1px solid rgba(0,255,65,0.3);
+  }
+
+  /* Compare grid: two funnels side by side */
+  .funil-compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+
+  /* Números dentro dos trapézios — overlay HTML absoluto, NÃO escala com SVG */
+  .funil-svg-labels {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+  .funil-svg-label {
+    position: absolute; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #04140A;
+    text-shadow:
+      0 0 4px rgba(255,255,255,0.55),
+      0 1px 0 rgba(255,255,255,0.35);
+    white-space: nowrap;
+  }
+  .funil-svg-label.is-light {
+    color: #F2FFF6;
+    text-shadow:
+      0 1px 2px rgba(0,0,0,0.85),
+      0 0 6px rgba(0,0,0,0.6);
+  }
+  .funil-bloco {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px 12px;
+    position: relative;
+  }
+  .funil-bloco-title {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 9px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.12em; margin-bottom: 10px; font-weight: 700;
+  }
+  .funil-bloco-title .corner-tick {
+    width: 8px; height: 8px;
+    border-top: 1.5px solid var(--accent);
+    border-right: 1.5px solid var(--accent);
+  }
+
+  /* SVG funnel */
+  .funil-svg-wrap {
+    position: relative; width: 100%; height: 168px;
+  }
+  .funil-svg {
+    width: 100%; height: 100%; display: block; overflow: visible;
+  }
+  .funil-svg .seg-shape {
+    transition: opacity 0.2s;
+  }
+  .funil-bloco:hover .funil-svg .seg-shape { filter: brightness(1.06); }
+
+  /* Step rail beside funnel — labels + values + conversion */
+  .funil-rail {
+    margin-top: 10px;
+    display: grid; grid-template-rows: repeat(4, 1fr);
+    gap: 0;
+  }
+  .funil-step-row {
+    display: grid; grid-template-columns: 1fr auto;
+    align-items: center; gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(0,255,65,0.08);
+    font-size: 11px;
+    position: relative;
+  }
+  .funil-step-row:last-child { border-bottom: none; }
+  .funil-step-row .dot {
+    width: 7px; height: 7px; flex-shrink: 0;
+    display: inline-block; margin-right: 8px; vertical-align: middle;
+    border-radius: 1px;
+  }
+  .funil-step-name {
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 10px; font-weight: 700;
+  }
+  .funil-step-name strong {
+    color: var(--text); font-weight: 700;
+    text-transform: none; letter-spacing: 0;
+  }
+  .funil-step-value {
+    text-align: right;
+    font-family: var(--mono);
+    font-weight: 700; color: var(--text);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+  }
+  .funil-step-conv {
+    display: inline-block; margin-left: 6px;
+    font-size: 9px; color: var(--accent);
+    font-family: var(--mono); font-weight: 500;
+    padding: 1px 5px; border-radius: 3px;
+    background: rgba(0,255,65,0.08);
+    border: 1px solid rgba(0,255,65,0.18);
+    vertical-align: 1px;
+  }
+  /* Footer: overall conversion + delta */
+  .funil-footer {
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    font-size: 10px;
+  }
+  .funil-stat {
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .funil-stat-label {
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+  .funil-stat-value {
+    font-family: var(--mono);
+    font-size: 14px; font-weight: 700; color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .funil-stat-value .delta-up   { color: var(--accent); margin-left: 4px; }
+  .funil-stat-value .delta-down { color: var(--red);    margin-left: 4px; }
+  .funil-stat-value .delta-flat { color: var(--muted);  margin-left: 4px; }
+
+  /* BARRA EMPILHADA HORIZONTAL (composição validado / a validar / não válido) */
+  .stacked-bar {
+    display: flex; height: 38px; border-radius: 8px;
+    overflow: hidden; background: var(--surface2); margin-top: 8px;
+    border: 1px solid var(--border);
+  }
+  .stacked-bar .seg {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    transition: filter 0.2s, width 0.6s ease;
+    overflow: hidden; white-space: nowrap;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stacked-bar .seg:hover { filter: brightness(1.1); }
+  .stacked-bar .seg.validados   { background: var(--accent); color: #04140A; }
+  .stacked-bar .seg.a-validar   { background: var(--amber);  color: #2a1d00; }
+  .stacked-bar .seg.nao-validos { background: var(--red);    color: #fff; }
+  .stacked-bar-legend {
+    display: flex; gap: 18px; margin-top: 12px; flex-wrap: wrap;
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+  }
+  .stacked-bar-legend .dot {
+    width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 6px;
+  }
+
+  /* TABELA COHORT */
+  .cohort-table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .cohort-table th, .cohort-table td {
+    padding: 9px 10px; text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .cohort-table th {
+    background: var(--surface2); color: var(--muted);
+    font-weight: 700; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    position: sticky; top: 0;
+  }
+  .cohort-table td:first-child, .cohort-table th:first-child { text-align: left; }
+  .cohort-table tbody tr:hover td { background: var(--surface2); }
+  .cohort-table tfoot { background: var(--surface2); }
+  .cohort-table tfoot td {
+    font-weight: 700; color: var(--accent);
+    border-top: 1px solid var(--hairline);
+  }
+
+  /* Grid stack chart + tabela de conversões (Funil vs Meta, com vendedor filtrado) */
+  .stack-tipo-grid {
+    display: grid;
+    grid-template-columns: minmax(400px, 1.8fr) minmax(300px, 1fr);
+    gap: 16px; margin-top: 18px;
+  }
+
+  /* OVERLAY DO COHORT — aparece ao passar mouse em célula numérica */
+  /* z-index 150: acima do conteúdo, abaixo do modal (200) e loading (300) */
+  #cohort-overlay {
+    position: fixed; z-index: 150; display: none;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 10px; box-shadow: 0 0 32px rgba(0,0,0,0.5), var(--accent-glow);
+    max-width: 720px; min-width: 480px; max-height: 420px; overflow: hidden;
+    font-family: var(--font);
+  }
+  #cohort-overlay .ovl-header {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    background: var(--surface2); position: sticky; top: 0;
+  }
+  #cohort-overlay .ovl-title {
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  #cohort-overlay .ovl-sub {
+    font-size: 10px; color: var(--muted); margin-top: 3px;
+    font-family: var(--mono);
+  }
+  #cohort-overlay .ovl-body { max-height: 360px; overflow-y: auto; }
+  #cohort-overlay table {
+    width: 100%; border-collapse: collapse; font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  #cohort-overlay thead { background: var(--surface2); position: sticky; top: 0; z-index: 2; }
+  #cohort-overlay thead th {
+    padding: 8px 10px; font-size: 9px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    text-align: left; border-bottom: 1px solid var(--hairline);
+  }
+  #cohort-overlay tbody td {
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+    color: var(--text); white-space: nowrap;
+  }
+  #cohort-overlay tbody tr:hover td { background: rgba(0,255,65,0.04); }
+  #cohort-overlay tbody tr:last-child td { border-bottom: none; }
+  #cohort-overlay .ovl-link {
+    color: var(--accent); text-decoration: none; font-weight: 700;
+    font-family: var(--mono); display: inline-flex; align-items: center; gap: 4px;
+  }
+  #cohort-overlay .ovl-link:hover { text-shadow: 0 0 8px rgba(0,255,65,0.5); }
+  #cohort-overlay .ovl-empty {
+    padding: 24px; text-align: center; color: var(--muted); font-size: 12px;
+  }
+  /* Indicador visual: célula clicável tem cursor de "ajuda" */
+  .cohort-table td.cohort-cell-hover { cursor: help; }
+  .cohort-table td.cohort-cell-hover:hover {
+    background: rgba(0,255,65,0.08) !important;
+    box-shadow: inset 0 0 0 1px var(--hairline);
+  }
+
+  /* OVERLAY DE DEALS — mesmo design do cohort, ativado por click no chart Agendamentos */
+  #deals-overlay {
+    position: fixed; z-index: 150; display: none;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 10px; box-shadow: 0 0 32px rgba(0,0,0,0.5), var(--accent-glow);
+    max-width: 720px; min-width: 460px; max-height: 480px; overflow: hidden;
+    font-family: var(--font);
+  }
+  #deals-overlay .ovl-header {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    background: var(--surface2); display: flex; align-items: center; justify-content: space-between;
+  }
+  #deals-overlay .ovl-title {
+    font-size: 12px; font-weight: 700; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  #deals-overlay .ovl-close {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s;
+  }
+  #deals-overlay .ovl-close:hover { border-color: var(--red); color: var(--red); }
+  #deals-overlay .ovl-sub {
+    font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 3px;
+  }
+  #deals-overlay .ovl-body { max-height: 420px; overflow-y: auto; }
+  #deals-overlay table {
+    width: 100%; border-collapse: collapse; font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  #deals-overlay thead { background: var(--surface2); position: sticky; top: 0; z-index: 2; }
+  #deals-overlay thead th {
+    padding: 8px 10px; font-size: 9px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    text-align: left; border-bottom: 1px solid var(--hairline);
+  }
+  #deals-overlay tbody td {
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+    color: var(--text); white-space: nowrap;
+  }
+  #deals-overlay tbody tr:hover td { background: rgba(0,255,65,0.04); }
+  #deals-overlay .ovl-link {
+    color: var(--accent); text-decoration: none; font-weight: 700;
+    font-family: var(--mono); display: inline-flex; align-items: center; gap: 4px;
+  }
+  #deals-overlay .ovl-link:hover { text-shadow: 0 0 8px rgba(0,255,65,0.5); }
+  #deals-overlay .ovl-empty {
+    padding: 24px; text-align: center; color: var(--muted); font-size: 12px;
+  }
+  /* Status badges no overlay de deals */
+  #deals-overlay .status-validado  { color: var(--accent); }
+  #deals-overlay .status-aValidar  { color: var(--amber);  }
+  #deals-overlay .status-naoValido { color: var(--red);    }
+
+  /* RESPONSIVO */
+  @media (max-width: 900px) {
+    .funil-grid { grid-template-columns: 1fr; }
+    .funil-card.is-total { grid-column: auto; }
+    .stack-tipo-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .topbar { padding: 12px 16px; }
+    main { padding: 16px; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .chart-card.span2 { grid-column: 1; }
+    .grid-rank { grid-template-columns: 28px 2fr 70px 80px 80px; }
+    .col-hide { display: none; }
+    .topbar-sub { display: none; }
+    .funil-compare { grid-template-columns: 1fr; }
+  }
+
+  /* Tooltip customizado dos KPI cards */
+  .info-tip { position:relative; display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border:1px solid currentColor; border-radius:50%; font-size:9px; font-weight:700; opacity:0.6; cursor:help; vertical-align:middle; }
+.info-tip .info-tip-content { display:none; position:absolute; bottom:135%; left:50%; transform:translateX(-50%); background:var(--surface2); color:var(--text); border:1px solid var(--hairline); border-radius:8px; padding:10px 12px; width:260px; font-size:11px; font-weight:400; line-height:1.5; text-transform:none; letter-spacing:normal; box-shadow:0 8px 24px rgba(0,0,0,0.4); z-index:50; text-align:left; white-space:normal; }
+.metric:has(.info-tip), .metric-value:has(.info-tip) { overflow: visible; }
+  .donut-wrap { display: flex; align-items: center; justify-content: center; gap: 32px; flex-wrap: wrap; margin-top: 14px; }
+  .donut-seg { cursor: pointer; transition: opacity .15s; }
+  .donut-seg:hover { opacity: 0.75; }
+  .donut-legend { display: flex; flex-direction: column; gap: 10px; }
+  .donut-legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .donut-legend-item .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .donut-legend-item .pct { color: var(--muted); margin-left: 4px; }
+  .chart-tooltip {
+    position: fixed; pointer-events: none; z-index: 9999;
+    background: rgba(13,43,26,0.97); border: 1px solid var(--accent); color: #fff;
+    padding: 8px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+    box-shadow: var(--accent-glow); display: none; white-space: nowrap;
+  }
+  .breakdown-row { margin-bottom: 10px; }
+  .breakdown-row-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .breakdown-row-head .name { font-weight: 600; }
+  .breakdown-row-head .count { color: var(--muted); }
+  .breakdown-bar-bg { height: 10px; border-radius: 5px; overflow: hidden; background: rgba(255,255,255,0.06); }
+  .breakdown-bar-fill { height: 100%; border-radius: 5px; }
+  .grid-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-top: 18px; }
+.info-tip:hover .info-tip-content, .info-tip:focus .info-tip-content { display:block; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo" aria-label="Gabriel"></div>
+    <div>
+      <div class="topbar-title">Dashboard Pré-Vendas</div>
+      <div class="topbar-sub">Integrado com HubSpot · Atualização via Apps Script</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="last-update" id="last-update-label">Última atualização: <strong id="last-update-time">—</strong></div>
+    <button id="btn-update" onclick="confirmarAtualizacao()">
+      <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+      <div class="spinner"></div>
+      <span id="btn-text">Atualizar dados</span>
+    </button>
+  </div>
+</header>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div class="modal">
+    <h3>Atualizar dados agora?</h3>
+    <p>O recálculo do cohort processa milhares de linhas e pode levar entre 5 e 30 segundos. Confirme para continuar.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="executarAtualizacao()">Confirmar atualização</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay">
+  <div>
+    <div class="spinner"></div>
+    <div id="loading-msg">Carregando...</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast">
+  <span class="toast-dot" id="toast-dot"></span>
+  <span id="toast-msg"></span>
+</div>
+
+<!-- OVERLAY DO COHORT — populado dinamicamente em mouseenter de células do cohort -->
+<div id="cohort-overlay"></div>
+
+<!-- OVERLAY DE DEALS — populado ao clicar num segmento do chart Agendamentos por vendedor -->
+<div id="deals-overlay"></div>
+
+<!-- CONTEÚDO PRINCIPAL -->
+<main>
+  <!-- FILTROS -->
+  <div class="filters">
+    <span class="filter-label">Período:</span>
+    <select class="filter-select" id="filter-periodo" onchange="onPeriodoChange()">
+      <option value="month">Mês atual</option>
+      <option value="week">Semana atual</option>
+      <option value="today">Hoje</option>
+      <option value="custom">Custom...</option>
+    </select>
+
+    <div id="custom-date-range">
+      <input type="date" id="date-start" class="date-input">
+      <span class="filter-label">até</span>
+      <input type="date" id="date-end" class="date-input">
+      <button class="btn-confirm" onclick="aplicarDateCustom()" style="padding:7px 14px;font-size:12px">Aplicar</button>
+    </div>
+
+    <span class="filter-label">Pré-vendedor:</span>
+    <select class="filter-select" id="filter-seller" onchange="renderAll()">
+      <option value="all">Todos os pré-vendedores</option>
+    </select>
+
+    <!-- Filtros de dimensão — visíveis só nas abas Evolução e Funil vs Meta.
+         Multi-select via tom-select (inicializado em popularSeletoresDimensao). -->
+    <div id="filters-dimensao" style="display:none; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span class="filter-label">Origem Macro:</span>
+      <select class="filter-select filter-multi" id="filter-origem" multiple placeholder="Todas"></select>
+      <span class="filter-label">Origem Micro:</span>
+      <select class="filter-select filter-multi" id="filter-origem-micro" multiple placeholder="Todas"></select>
+      <span class="filter-label">Perfil:</span>
+      <select class="filter-select filter-multi" id="filter-perfil" multiple placeholder="Todos"></select>
+      <span class="filter-label">Tipo Estab.:</span>
+      <select class="filter-select filter-multi" id="filter-tipo" multiple placeholder="Todos"></select>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" data-tab="overview" onclick="setTab(this)">Visão Geral</div>
+    <div class="tab" data-tab="ranking" onclick="setTab(this)">Ranking</div>
+    <div class="tab" data-tab="evolucao" onclick="setTab(this)">Evolução</div>
+    <div class="tab" data-tab="funil" onclick="setTab(this)">Funil vs Meta</div>
+    <div class="tab" data-tab="cohort" onclick="setTab(this)">Cohort</div>
+    <div class="tab" data-tab="tiporeuniao" onclick="setTab(this)">Online vs Presencial</div>
+    <div class="tab" data-tab="mrr" onclick="setTab(this)">MRR</div>
+  </div>
+
+  <div id="tab-content"></div>
+</main>
+
+<script>
+// ============================================================
+//  ESTADO GLOBAL
+// ============================================================
+let DASHBOARD_DATA = null;
+let SELLERS = [];
+let METAS   = {};
+let charts  = {};
+let currentTab = 'overview';
+
+// Paleta fixa para os 6 vendedores conhecidos. Vendedores novos
+// recebem cor de fallback via hash do nome.
+const COLORS_FIXED = {
+  'Eduarda de Barros':         '#4f80ff',
+  'Giovanna Garcia':           '#22c97a',
+  'Pedro Dias':                '#f5a623',
+  'Vitória Miranda':           '#e879f9',
+  'Roberta Lobasso':           '#38bdf8',
+  'Luiz Fernando Pellegrini':  '#a78bfa'
+};
+const COLORS_FALLBACK = ['#4f80ff','#22c97a','#f5a623','#e879f9','#38bdf8','#a78bfa','#fb7185','#34d399'];
+
+function colorFor(name) {
+  if (COLORS_FIXED[name]) return COLORS_FIXED[name];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return COLORS_FALLBACK[Math.abs(h) % COLORS_FALLBACK.length];
+}
+
+// ============================================================
+//  INICIALIZAÇÃO
+// ============================================================
+window.addEventListener('DOMContentLoaded', function() {
+  // Detecta se o HTML foi aberto fora do Apps Script (preview local, dev, etc).
+  // google.script.run só existe quando servido via HtmlService.
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    hideLoading();
+    document.getElementById('tab-content').innerHTML = `
+      <div class="chart-card" style="text-align:center; padding:48px 32px;">
+        <div class="chart-card-title" style="font-size:15px; margin-bottom:12px;">
+          Pré-visualização local não suportada
+        </div>
+        <div style="color:var(--muted); font-size:13px; line-height:1.7; max-width:520px; margin:0 auto;">
+          Este dashboard depende de <code style="color:var(--accent);">google.script.run</code>, que só está disponível quando o HTML é servido pelo Apps Script via <code style="color:var(--accent);">HtmlService</code>.<br><br>
+          Para testar, faça o deploy seguindo o <strong>README.md §3</strong> e abra a URL <code style="color:var(--accent);">/dev</code> ou <code style="color:var(--accent);">/exec</code> do Web App.
+        </div>
+      </div>`;
+    return;
+  }
+
+  showLoading('Carregando dados...');
+  google.script.run
+    .withSuccessHandler(onDataLoaded)
+    .withFailureHandler(onDataError)
+    .fetchData();
+});
+
+function onDataLoaded(payload) {
+  hideLoading();
+  if (!payload || !payload.ok) {
+    showToast('error', (payload && payload.error) || 'Erro ao carregar dados.');
+    return;
+  }
+  DASHBOARD_DATA = payload;
+  popularMetas(payload.compilado);
+  popularSeletorVendedor(payload.compilado.rows);
+  popularSeletoresDimensao(payload);
+  inicializarDatePicker(payload.filters);
+  document.getElementById('last-update-time').textContent = formatarTimestamp(payload.timestamp);
+  renderAll();
+}
+
+// Popula os 4 selects de dimensão com union dos vocabulários de timeline e funilLeads.
+// Inicializa tom-select (multi-select) em cima. Re-popula no refresh destruindo antes.
+function popularSeletoresDimensao(payload) {
+  const dimTimeline = (payload.timeline && payload.timeline.dimensoes) || {};
+  const dimFunil    = (payload.funilLeads && payload.funilLeads.dimensoes) || {};
+
+  const merge = function(a, b) {
+    const set = {};
+    (a || []).forEach(function(x) { set[x] = true; });
+    (b || []).forEach(function(x) { set[x] = true; });
+    return Object.keys(set).sort();
+  };
+
+  const dims = {
+    origemMacro: merge(dimTimeline.origemMacro,    dimFunil.origemMacro),
+    origemMicro: merge(dimTimeline.origemMicro,    dimFunil.origemMicro),
+    perfil:      merge(dimTimeline.perfilAgrupado, dimFunil.perfilAgrupado),
+    tipo:        merge(dimTimeline.tipoEstab,      dimFunil.tipoEstab)
+  };
+
+  // Popula <option>s no <select> nativo, depois (re)cria tom-select
+  const setup = function(id, lista, placeholder) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+
+    // Destrói instância anterior se existir (no refresh)
+    if (TOM_SELECTS[id]) {
+      try { TOM_SELECTS[id].destroy(); } catch (e) {}
+      delete TOM_SELECTS[id];
+    }
+
+    // Limpa options nativos e re-popula
+    sel.innerHTML = '';
+    lista.forEach(function(v) {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+
+    // Cria tom-select (multi-select com pill removível)
+    if (typeof TomSelect !== 'undefined') {
+      TOM_SELECTS[id] = new TomSelect(sel, {
+        plugins: ['remove_button'],
+        maxItems: null,           // multi-select
+        placeholder: placeholder,
+        hidePlaceholder: false,
+        persist: false,
+        onChange: function() { renderAll(); }
+      });
+    }
+  };
+
+  setup('filter-origem',       dims.origemMacro, 'Todas');
+  setup('filter-origem-micro', dims.origemMicro, 'Todas');
+  setup('filter-perfil',       dims.perfil,      'Todos');
+  setup('filter-tipo',         dims.tipo,        'Todos');
+}
+
+// Mostra/esconde a barra de filtros de dimensão conforme a aba ativa.
+// Visível só em: evolucao, funil. (Esconde inclusive os widgets tom-select.)
+function atualizarVisibilidadeFiltrosDimensao() {
+  const div = document.getElementById('filters-dimensao');
+  if (!div) return;
+  const visivel = (currentTab === 'evolucao' || currentTab === 'funil');
+  div.style.display = visivel ? 'flex' : 'none';
+}
+
+function onDataError(err) {
+  hideLoading();
+  const msg = (err && err.message) ? err.message : String(err);
+  showToast('error', 'Falha de conexão: ' + msg);
+}
+
+var VENDEDORES_EXCLUIDOS_ = ['Luiz Fernando Pellegrini', 'Roberta Lobasso'];
+function popularMetas(compilado) {
+  METAS = {};
+  SELLERS = [];
+  compilado.rows.forEach(function(r) {
+    if (!r.vendedor) return;
+    if (VENDEDORES_EXCLUIDOS_.indexOf(r.vendedor) !== -1) return;
+    METAS[r.vendedor] = r.metaTime || 0;
+    SELLERS.push(r.vendedor);
+  });
+}
+
+function popularSeletorVendedor(rows) {
+  const sel = document.getElementById('filter-seller');
+  while (sel.options.length > 1) sel.remove(1);
+  rows.forEach(function(r) {
+    if (!r.vendedor) return;
+    if (VENDEDORES_EXCLUIDOS_.indexOf(r.vendedor) !== -1) return;
+    const o = document.createElement('option');
+    o.value = r.vendedor;
+    o.textContent = nomeCurto(r.vendedor);
+    sel.appendChild(o);
+  });
+}
+
+function inicializarDatePicker(filters) {
+  document.getElementById('date-start').value = filters.cohortStart || '';
+  document.getElementById('date-end').value   = filters.cohortEnd   || '';
+}
+
+function formatarTimestamp(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit'
+    });
+  } catch (e) { return '—'; }
+}
+
+// ============================================================
+//  PERÍODO E FILTROS
+// ============================================================
+function onPeriodoChange() {
+  const p = document.getElementById('filter-periodo').value;
+  const customDiv = document.getElementById('custom-date-range');
+
+  if (p === 'custom') {
+    customDiv.style.display = 'flex';
+    return; // espera o usuário aplicar
+  }
+  customDiv.style.display = 'none';
+  renderAll(); // presets são client-side: refiltram apenas a timeline
+}
+
+function aplicarDateCustom() {
+  const start = document.getElementById('date-start').value;
+  const end   = document.getElementById('date-end').value;
+  if (!start || !end) { showToast('error', 'Selecione as duas datas.'); return; }
+  if (start > end)     { showToast('error', 'Data inicial deve ser <= data final.'); return; }
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function obterDatasFiltroAtuais() {
+  const p = document.getElementById('filter-periodo').value;
+
+  if (p === 'custom') {
+    const start = document.getElementById('date-start').value;
+    const end   = document.getElementById('date-end').value;
+    return { cohortStart: start, cohortEnd: end, funilStart: start, funilEnd: end };
+  }
+
+  const today = new Date();
+  const isoToday = formatarISO_(today);
+
+  if (p === 'today') {
+    return { cohortStart: isoToday, cohortEnd: isoToday, funilStart: isoToday, funilEnd: isoToday };
+  }
+
+  if (p === 'week') {
+    const dow = today.getDay() || 7;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dow - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return {
+      cohortStart: formatarISO_(monday), cohortEnd: formatarISO_(sunday),
+      funilStart:  formatarISO_(monday), funilEnd:  formatarISO_(sunday)
+    };
+  }
+
+  // Default: mês atual
+  const first = new Date(today.getFullYear(), today.getMonth(), 1);
+  const last  = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  return {
+    cohortStart: formatarISO_(first), cohortEnd: formatarISO_(last),
+    funilStart:  formatarISO_(first), funilEnd:  formatarISO_(last)
+  };
+}
+
+function formatarISO_(d) {
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return ano + '-' + mes + '-' + dia;
+}
+
+function obterTimelineFiltrada() {
+  if (!DASHBOARD_DATA) return [];
+  const items = DASHBOARD_DATA.timeline.items || [];
+  const p  = document.getElementById('filter-periodo').value;
+  const sv = document.getElementById('filter-seller').value;
+  const dim = getFiltrosDimensoes_();
+
+  const today = DASHBOARD_DATA.metaInfo.today;
+  const startMonth = DASHBOARD_DATA.metaInfo.startMonth;
+  const endMonth   = DASHBOARD_DATA.metaInfo.endMonth;
+  const weekStart  = obterInicioSemana(today);
+
+  // Quando custom, usar as datas atualmente aplicadas na planilha (B2:C2 da Cohort)
+  const f = DASHBOARD_DATA.filters || {};
+  const customStart = f.cohortStart || startMonth;
+  const customEnd   = f.cohortEnd   || endMonth;
+
+  return items.filter(function(i) {
+    if (sv !== 'all' && i.vendedor !== sv) return false;
+    if (!aplicarFiltrosDimensoes_(i, dim)) return false;
+    if (p === 'today')  return i.date === today;
+    if (p === 'week')   return i.date >= weekStart && i.date <= today;
+    if (p === 'custom') return i.date >= customStart && i.date <= customEnd;
+    if (p === 'month')  return i.date >= startMonth && i.date <= endMonth;
+    return true;
+  });
+}
+
+// =============================================================
+// ONLINE VS PRESENCIAL -- filtro de periodo (mesmo padrao de obterTimelineFiltrada)
+// =============================================================
+function obterTipoReuniaoFiltrado() {
+  if (!DASHBOARD_DATA || !DASHBOARD_DATA.tipoReuniao) return [];
+  const items = DASHBOARD_DATA.tipoReuniao.items || [];
+  const p  = document.getElementById('filter-periodo').value;
+  const sv = document.getElementById('filter-seller').value;
+
+  const today       = DASHBOARD_DATA.metaInfo.today;
+  const startMonth  = DASHBOARD_DATA.metaInfo.startMonth;
+  const endMonth    = DASHBOARD_DATA.metaInfo.endMonth;
+  const weekStart   = obterInicioSemana(today);
+
+  const f = DASHBOARD_DATA.filters || {};
+  const customStart = f.cohortStart || startMonth;
+  const customEnd    = f.cohortEnd   || endMonth;
+
+  return items.filter(function(i) {
+    if (sv !== 'all' && i.vendedor !== sv) return false;
+    if (p === 'today')  return i.date === today;
+    if (p === 'week')   return i.date >= weekStart && i.date <= today;
+    if (p === 'custom') return i.date >= customStart && i.date <= customEnd;
+    if (p === 'month')  return i.date >= startMonth && i.date <= endMonth;
+    return true;
+  });
+}
+
+
+// ============================================================
+//  FILTROS DE DIMENSÃO (Origem Macro · Origem Micro · Perfil · Tipo Estab)
+// ============================================================
+// Multi-select via tom-select. Cada filtro retorna um ARRAY de valores selecionados.
+// Array vazio = "todos" (não filtra). Array com valores = item.field precisa estar incluído.
+
+// Guarda instâncias do tom-select pra poder destruir/recriar quando refresh
+const TOM_SELECTS = {};
+
+function getFiltrosDimensoes_() {
+  const get = function(id) {
+    if (TOM_SELECTS[id]) return TOM_SELECTS[id].getValue() || [];
+    const el = document.getElementById(id);
+    if (!el) return [];
+    // Fallback: lê <select multiple> nativo
+    return Array.from(el.selectedOptions || []).map(function(o) { return o.value; });
+  };
+  return {
+    origemMacro:    get('filter-origem'),
+    origemMicro:    get('filter-origem-micro'),
+    perfilAgrupado: get('filter-perfil'),
+    tipoEstab:      get('filter-tipo')
+  };
+}
+
+// Testa se um item (timeline ou fatiado de funil) passa nos filtros de dimensão.
+// Item precisa ter campos origemMacro, origemMicro, perfilAgrupado, tipoEstab.
+// Pra cada filtro: vazio = passa qualquer; senão precisa estar no array.
+function aplicarFiltrosDimensoes_(item, filtros) {
+  filtros = filtros || getFiltrosDimensoes_();
+  if (filtros.origemMacro.length    && filtros.origemMacro.indexOf(item.origemMacro)       < 0) return false;
+  if (filtros.origemMicro.length    && filtros.origemMicro.indexOf(item.origemMicro || '') < 0) return false;
+  if (filtros.perfilAgrupado.length && filtros.perfilAgrupado.indexOf(item.perfilAgrupado) < 0) return false;
+  if (filtros.tipoEstab.length      && filtros.tipoEstab.indexOf(item.tipoEstab)           < 0) return false;
+  return true;
+}
+
+// True se algum filtro tem ao menos 1 valor selecionado.
+function temFiltrosDimensoesAtivos_() {
+  const d = getFiltrosDimensoes_();
+  return d.origemMacro.length > 0 || d.origemMicro.length > 0
+      || d.perfilAgrupado.length > 0 || d.tipoEstab.length > 0;
+}
+
+// ============================================================
+//  ATINGIMENTO POR MÊS — period-aware (mês corrente vs finalizado)
+// ============================================================
+// Pra mês CORRENTE: usa Compilado de Passes (fórmulas com pro-rata projetado).
+// Pra mês PASSADO: calcula realizado validado (Neo Crescimento) ÷ meta mensal (Meta Pré vendedor).
+// Retorna estrutura uniforme pra alimentar o KPI Atingimento Projeção e a tabela Ranking.
+//
+// shape:
+//   {
+//     isMesCorrente: bool,           // se true, "projeção pro-rata"; se false, "atingimento final"
+//     mesLabel: "2026-04",           // mês de referência (YYYY-MM)
+//     mesIni: "2026-04-01",          // primeiro dia
+//     mesFim: "2026-04-30",          // último dia
+//     rows: [                        // 1 linha por vendedor (mesma ordem do Compilado)
+//       { vendedor, metaTime, metaProRata, realizado, atingimentoProRata }
+//     ],
+//     total: { metaTime, metaProRata, realizado, atingimentoProRata }
+//   }
+function obterAtingimentoPorMes_() {
+  if (!DASHBOARD_DATA) return null;
+  const meta = DASHBOARD_DATA.metaInfo || {};
+  const mesAtual = mesDoPeriodoAtual_();
+  const mesCorrente = (meta.startMonth || '').slice(0, 7);
+  const isMesCorrente = !mesAtual || mesAtual === mesCorrente;
+
+  // FAST PATH: mês corrente → reusa Compilado (fórmulas projeção pro-rata)
+  if (isMesCorrente) {
+    const comp = DASHBOARD_DATA.compilado || {};
+    return {
+      isMesCorrente: true,
+      mesLabel: mesCorrente,
+      mesIni: meta.startMonth,
+      mesFim: meta.endMonth,
+      rows: comp.rows || [],
+      total: comp.total || {}
+    };
+  }
+
+  // SLOW PATH: mês passado → calcula realizado + meta client-side
+  const mesIni = mesAtual + '-01';
+  // Último dia do mês: pega dia 0 do mês seguinte (truque JS)
+  const [ano, mes] = mesAtual.split('-').map(Number);
+  const ultimoDiaDate = new Date(ano, mes, 0);
+  const mesFim = formatarISO_(ultimoDiaDate);
+
+  // Realizado VALIDADO por vendedor: soma items de DASHBOARD_DATA.metas.items no range, status validado
+  const metasItems = (DASHBOARD_DATA.metas && DASHBOARD_DATA.metas.items) || [];
+  const realizadoBy = {};
+  metasItems.forEach(function(i) {
+    if (i.date < mesIni || i.date > mesFim) return;
+    realizadoBy[i.vendedor] = (realizadoBy[i.vendedor] || 0) + (i.validados || 0);
+  });
+
+  // Metas do mês: do payload metasPorMes
+  const metasMes = (DASHBOARD_DATA.metasPorMes && DASHBOARD_DATA.metasPorMes.metas && DASHBOARD_DATA.metasPorMes.metas[mesAtual]) || {};
+
+  // Monta rows na MESMA ordem do compilado (consistente com Ranking)
+  const compRows = (DASHBOARD_DATA.compilado && DASHBOARD_DATA.compilado.rows) || [];
+  const rows = compRows.map(function(r) {
+    const v = r.vendedor;
+    const metaVal = metasMes[v];
+    const metaTime = (metaVal == null || metaVal === '-' || metaVal === '') ? 0 : Number(metaVal);
+    const realizado = realizadoBy[v] || 0;
+    // Mês finalizado: metaProRata == metaTime (não há mais "pro rata" — mês acabou)
+    const metaProRata = metaTime;
+    const atingimentoProRata = metaTime > 0 ? realizado / metaTime : 0;
+    return {
+      vendedor: v,
+      metaTime: metaTime,
+      metaProRata: metaProRata,
+      realizado: realizado,
+      atingimentoProRata: atingimentoProRata
+    };
+  });
+
+  // Total: soma das linhas
+  const total = rows.reduce(function(acc, r) {
+    acc.metaTime    += r.metaTime || 0;
+    acc.metaProRata += r.metaProRata || 0;
+    acc.realizado   += r.realizado || 0;
+    return acc;
+  }, { metaTime: 0, metaProRata: 0, realizado: 0 });
+  total.atingimentoProRata = total.metaTime > 0 ? total.realizado / total.metaTime : 0;
+
+  return {
+    isMesCorrente: false,
+    mesLabel: mesAtual,
+    mesIni: mesIni,
+    mesFim: mesFim,
+    rows: rows,
+    total: total
+  };
+}
+
+// ============================================================
+//  EVOLUÇÃO — deltas diário / semanal / mensal vs período anterior
+// ============================================================
+// Usa timeline (Passes Do Mês) — respeita seller select + filtros de dimensão.
+// NÃO respeita filtro de período (são métricas fixas de "ritmo").
+function calcularEvolucaoDeltas_() {
+  const sv = document.getElementById('filter-seller').value;
+  const dim = getFiltrosDimensoes_();
+  const items = (DASHBOARD_DATA && DASHBOARD_DATA.timeline && DASHBOARD_DATA.timeline.items) || [];
+  const filtrados = items.filter(function(i) {
+    if (sv !== 'all' && i.vendedor !== sv) return false;
+    return aplicarFiltrosDimensoes_(i, dim);
+  });
+
+  const todayISO = DASHBOARD_DATA.metaInfo.today;
+  const today = new Date(todayISO + 'T00:00:00');
+
+  // Soma count para data dentro de [start, end] inclusive (ambas strings ISO YYYY-MM-DD)
+  const sumRange = function(start, end) {
+    return filtrados
+      .filter(function(i) { return i.date >= start && i.date <= end; })
+      .reduce(function(a, b) { return a + (b.count || 0); }, 0);
+  };
+
+  // === DIÁRIO: hoje vs ontem
+  const ontemD = new Date(today); ontemD.setDate(ontemD.getDate() - 1);
+  const ontemISO = formatarISO_(ontemD);
+
+  // === SEMANAL: semana atual (segunda → hoje) vs semana passada (mesma duração e dias)
+  const mondayISO = obterInicioSemana(todayISO);
+  const monday = new Date(mondayISO + 'T00:00:00');
+  const diasNaSemana = Math.round((today - monday) / (1000 * 60 * 60 * 24)); // 0..6
+
+  const lastMonday = new Date(monday); lastMonday.setDate(lastMonday.getDate() - 7);
+  const lastWeekEnd = new Date(lastMonday); lastWeekEnd.setDate(lastWeekEnd.getDate() + diasNaSemana);
+  const lastMondayISO = formatarISO_(lastMonday);
+  const lastWeekEndISO = formatarISO_(lastWeekEnd);
+
+  // === MENSAL: mês corrente (dia 1 → hoje) vs mês anterior (dia 1 → mesmo dia)
+  const mes1ISO = todayISO.slice(0, 8) + '01';
+  const diaMes = parseInt(todayISO.slice(8), 10);
+  const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const prevMonthStart = formatarISO_(prevMonth);
+  // Cuidado: se mês anterior tem menos dias, clampa pro último dia válido
+  const ultimoDiaMesAnt = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+  const diaClampado = Math.min(diaMes, ultimoDiaMesAnt);
+  const prevMonthEnd = formatarISO_(new Date(prevMonth.getFullYear(), prevMonth.getMonth(), diaClampado));
+
+  return {
+    diario:  { atual: sumRange(todayISO, todayISO),         anterior: sumRange(ontemISO, ontemISO) },
+    semanal: { atual: sumRange(mondayISO, todayISO),        anterior: sumRange(lastMondayISO, lastWeekEndISO) },
+    mensal:  { atual: sumRange(mes1ISO, todayISO),          anterior: sumRange(prevMonthStart, prevMonthEnd) }
+  };
+}
+
+function obterInicioSemana(isoDate) {
+  if (!isoDate) return '';
+  const d = new Date(isoDate + 'T00:00:00');
+  const dow = d.getDay() || 7;
+  d.setDate(d.getDate() - (dow - 1));
+  return formatarISO_(d);
+}
+
+// Domingo da semana em que cai isoDate (segunda → domingo).
+function obterFimSemana_(isoDate) {
+  if (!isoDate) return '';
+  const d = new Date(isoDate + 'T00:00:00');
+  const dow = d.getDay() || 7;
+  d.setDate(d.getDate() + (7 - dow));
+  return formatarISO_(d);
+}
+
+function periodoLabel() {
+  const p = document.getElementById('filter-periodo').value;
+  if (p === 'today')  return 'Hoje';
+  if (p === 'week')   return 'Semana atual';
+  if (p === 'custom') {
+    const f = DASHBOARD_DATA && DASHBOARD_DATA.filters;
+    if (f) return f.cohortStart + ' a ' + f.cohortEnd;
+    return 'Custom';
+  }
+  return 'Mês atual';
+}
+
+// ============================================================
+//  HELPERS PERIOD-AWARE — usados pelos render functions
+// ============================================================
+// FONTES DE DADOS (importante):
+//  - metas    = aba "Neo Crescimento - PV" (visão de meta — quando reunião acontece)
+//             → alimenta Visão Geral, Ranking, Funil vs Meta (Realizado)
+//  - timeline = aba "Passes Do Mês" (visão de passes — quando passe foi feito)
+//             → alimenta a aba Evolução
+//  - compilado = aba "Compilado de Passes" (fórmulas mensais)
+//             → fonte de Meta Time (B), Meta Pro Rata, Atingimento Pro Rata, etc.
+//             NÃO é usado para "Realizado" — esse vem sempre de metas.
+
+// Filtra metas.items APENAS pelo período (ignora seller select).
+function filtrarMetasPorPeriodo() {
+  if (!DASHBOARD_DATA || !DASHBOARD_DATA.metas) return [];
+  const items = DASHBOARD_DATA.metas.items || [];
+  const p = document.getElementById('filter-periodo').value;
+  const meta = DASHBOARD_DATA.metaInfo || {};
+  const f = DASHBOARD_DATA.filters || {};
+  const today = meta.today;
+  const weekStart = obterInicioSemana(today);
+  const customStart = f.cohortStart || meta.startMonth;
+  const customEnd   = f.cohortEnd   || meta.endMonth;
+
+  return items.filter(function(i) {
+    if (p === 'today')  return i.date === today;
+    if (p === 'week')   return i.date >= weekStart && i.date <= today;
+    if (p === 'custom') return i.date >= customStart && i.date <= customEnd;
+    if (p === 'month')  return i.date >= meta.startMonth && i.date <= meta.endMonth;
+    return true;
+  });
+}
+
+// Filtra timeline.items APENAS pelo período (ignora seller select).
+// Usado SOMENTE pela aba Evolução.
+function filtrarTimelinePorPeriodo() {
+  if (!DASHBOARD_DATA) return [];
+  const items = DASHBOARD_DATA.timeline.items || [];
+  const p = document.getElementById('filter-periodo').value;
+  const meta = DASHBOARD_DATA.metaInfo || {};
+  const f = DASHBOARD_DATA.filters || {};
+  const today = meta.today;
+  const weekStart = obterInicioSemana(today);
+  const customStart = f.cohortStart || meta.startMonth;
+  const customEnd   = f.cohortEnd   || meta.endMonth;
+
+  return items.filter(function(i) {
+    if (p === 'today')  return i.date === today;
+    if (p === 'week')   return i.date >= weekStart && i.date <= today;
+    if (p === 'custom') return i.date >= customStart && i.date <= customEnd;
+    if (p === 'month')  return i.date >= meta.startMonth && i.date <= meta.endMonth;
+    return true;
+  });
+}
+
+// Retorna map { vendedor → métrica } para o período atual.
+// `metric` aceita: 'count' (total), 'validados', 'aValidar', 'naoValidos'.
+// Default: 'validados' (alinhado com a regra: charts e líder = só válidos).
+function getRealizadoByVendedor(metric) {
+  if (!DASHBOARD_DATA) return {};
+  metric = metric || 'validados';
+  const map = {};
+  filtrarMetasPorPeriodo().forEach(function(i) {
+    map[i.vendedor] = (map[i.vendedor] || 0) + (i[metric] || 0);
+  });
+  SELLERS.forEach(function(s) { if (!(s in map)) map[s] = 0; });
+  return map;
+}
+
+// Soma global de uma métrica no período atual (com filtro de seller aplicado).
+function getTotalPorMetric(metric) {
+  if (!DASHBOARD_DATA) return 0;
+  metric = metric || 'count';
+  const sv = document.getElementById('filter-seller').value;
+  return filtrarMetasPorPeriodo().reduce(function(acc, i) {
+    if (sv !== 'all' && i.vendedor !== sv) return acc;
+    return acc + (i[metric] || 0);
+  }, 0);
+}
+
+// Aplica filtro de período + filtro de seller a metas.items.
+// Usado pelos charts de Visão Geral.
+function obterMetasFiltradas() {
+  const sv = document.getElementById('filter-seller').value;
+  return filtrarMetasPorPeriodo().filter(function(i) {
+    return sv === 'all' || i.vendedor === sv;
+  });
+}
+
+// Retorna a chave "YYYY-MM" do mês relevante para o período atualmente selecionado.
+// - Mês atual: usa metaInfo.startMonth
+// - Custom/today/week: usa o mês de filters.cohortStart (ou metaInfo.today se não houver)
+function mesDoPeriodoAtual_() {
+  if (!DASHBOARD_DATA) return null;
+  const p = document.getElementById('filter-periodo').value;
+  const meta = DASHBOARD_DATA.metaInfo || {};
+  const f = DASHBOARD_DATA.filters || {};
+  let referencia;
+  if (p === 'month') referencia = meta.startMonth;
+  else if (p === 'today' || p === 'week') referencia = meta.today;
+  else referencia = f.cohortStart || meta.startMonth;
+  if (!referencia) return null;
+  return String(referencia).slice(0, 7); // "YYYY-MM"
+}
+
+// Retorna a meta mensal de um vendedor para o mês do período atual.
+// Fonte: aba "Meta Pré vendedor". Pode retornar null (vendedor sem meta definida
+// ou ainda não estava na equipe naquele mês).
+function getMetaParaPeriodo(vendedor) {
+  if (!DASHBOARD_DATA || !DASHBOARD_DATA.metasPorMes) return null;
+  const mesKey = mesDoPeriodoAtual_();
+  if (!mesKey) return null;
+  const metasMes = DASHBOARD_DATA.metasPorMes.metas[mesKey];
+  if (!metasMes) return null;
+  const v = metasMes[vendedor];
+  return (v == null) ? null : v;
+}
+
+function getSubtitlePeriodo() {
+  if (!DASHBOARD_DATA) return '—';
+  const p = document.getElementById('filter-periodo').value;
+  const meta = DASHBOARD_DATA.metaInfo || {};
+  const f = DASHBOARD_DATA.filters || {};
+  if (p === 'month')  return (meta.startMonth || '') + ' a ' + (meta.endMonth || '');
+  if (p === 'week')   return obterInicioSemana(meta.today) + ' a ' + (meta.today || '');
+  if (p === 'today')  return meta.today || '';
+  if (p === 'custom') return (f.cohortStart || '') + ' a ' + (f.cohortEnd || '');
+  return '—';
+}
+
+// Sufixo curto para labels: "no mês", "na semana", "hoje", "no período".
+function getSufixoPeriodo() {
+  const p = document.getElementById('filter-periodo').value;
+  if (p === 'today')  return 'hoje';
+  if (p === 'week')   return 'na semana';
+  if (p === 'custom') return 'no período';
+  return 'no mês';
+}
+
+// ============================================================
+//  ATUALIZAÇÃO DE DADOS (refreshData)
+// ============================================================
+function confirmarAtualizacao() {
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function fecharModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function executarAtualizacao() {
+  fecharModal();
+  const btn = document.getElementById('btn-update');
+  const txt = document.getElementById('btn-text');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  txt.textContent = 'Atualizando...';
+
+  const params = obterDatasFiltroAtuais();
+
+  google.script.run
+    .withSuccessHandler(function(payload) {
+      if (payload && payload.ok) {
+        DASHBOARD_DATA = payload;
+        popularMetas(payload.compilado);
+        popularSeletorVendedor(payload.compilado.rows);
+        popularSeletoresDimensao(payload);
+        inicializarDatePicker(payload.filters);
+        document.getElementById('last-update-time').textContent = formatarTimestamp(payload.timestamp);
+        renderAll();
+        showToast('success', 'Dados atualizados.');
+      } else {
+        showToast('error', (payload && payload.error) || 'Erro desconhecido.');
+      }
+      resetBotao();
+    })
+    .withFailureHandler(function(err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      showToast('error', 'Falha: ' + msg);
+      resetBotao();
+    })
+    .refreshData(params);
+
+  function resetBotao() {
+    setTimeout(function() {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      txt.textContent = 'Atualizar dados';
+    }, 1500);
+  }
+}
+
+// ============================================================
+//  TABS / ROUTER
+// ============================================================
+function setTab(el) {
+  currentTab = el.dataset.tab;
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  el.classList.add('active');
+  renderAll();
+}
+
+function renderAll() {
+  if (!DASHBOARD_DATA) return;
+  // Esconde overlays caso estejam abertos (proteção em troca de aba/filtro)
+  if (typeof esconderOverlayCohort_ === 'function') esconderOverlayCohort_();
+  if (typeof esconderOverlayDeals_  === 'function') esconderOverlayDeals_();
+  atualizarVisibilidadeFiltrosDimensao();
+  if (currentTab === 'overview') renderOverview();
+  else if (currentTab === 'ranking') renderRanking();
+  else if (currentTab === 'evolucao') renderEvolucao();
+  else if (currentTab === 'funil') renderFunil();
+  else if (currentTab === 'cohort') renderCohort();
+  else if (currentTab === 'tiporeuniao') renderTipoReuniao();
+  else if (currentTab === 'mrr') renderMRR();
+}
+
+function renderMRR() {
+  var el = document.getElementById('tab-content');
+  var dados = (DASHBOARD_DATA.mrrPorPreVendedor) || { agendamento: [], venda: [] };
+  var MESES_PT_ = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  function mesLabel(m) {
+    var p = String(m || '').split('-');
+    if (p.length < 2) return m;
+    return MESES_PT_[parseInt(p[1], 10) - 1] + '/' + p[0].slice(2);
+  }
+  function fmtReal(v) {
+    return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  function mesesDe(lista) {
+    var s = {};
+    lista.forEach(function(r) { s[r.mes] = true; });
+    return Object.keys(s).sort();
+  }
+  function sdrsDe(lista) {
+    var s = {};
+    lista.forEach(function(r) { s[r.sdr] = true; });
+    return Object.keys(s).sort();
+  }
+  function tabelaHtml(titulo, sub, lista, comReunioes) {
+    var meses = mesesDe(lista);
+    var sdrs = sdrsDe(lista);
+    var porChave = {};
+    lista.forEach(function(r) { porChave[r.sdr + '|' + r.mes] = r; });
+    var h = '<div class="chart-card">';
+    h += '<div class="chart-card-title">' + titulo + '</div>';
+    h += '<div class="chart-card-sub">' + sub + '</div>';
+    h += '<div style="overflow-x:auto;margin-top:.8rem"><table style="width:100%;border-collapse:collapse;font-size:.85rem">';
+    h += '<thead><tr>';
+    h += '<th style="text-align:left;padding:.4rem .6rem;color:var(--muted);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--border)">Pré-vendedor</th>';
+    if (comReunioes) h += '<th style="text-align:right;padding:.4rem .6rem;color:var(--muted);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--border)">Reuniões</th>';
+    meses.forEach(function(m) {
+      h += '<th style="text-align:right;padding:.4rem .6rem;color:var(--muted);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--border)">' + mesLabel(m) + '</th>';
+    });
+    h += '<th style="text-align:right;padding:.4rem .6rem;color:var(--muted);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--border)">Total</th>';
+    if (comReunioes) h += '<th style="text-align:right;padding:.4rem .6rem;color:var(--muted);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--border)">Conversão</th>';
+    h += '</tr></thead><tbody>';
+    var colTotVendas = {}, colTotMrr = {};
+    var grandVendas = 0, grandMrr = 0, grandReunioes = 0;
+    sdrs.forEach(function(sdr) {
+      h += '<tr>';
+      h += '<td style="padding:.5rem .6rem;border-bottom:1px solid var(--border)">' + sdr + '</td>';
+      var rowReunioes = 0, rowVendas = 0, rowMrr = 0;
+      if (comReunioes) {
+        lista.forEach(function(r) { if (r.sdr === sdr) rowReunioes += (r.reunioes || 0); });
+        h += '<td style="text-align:right;padding:.5rem .6rem;border-bottom:1px solid var(--border)">' + rowReunioes + '</td>';
+        grandReunioes += rowReunioes;
+      }
+      meses.forEach(function(m) {
+        var r = porChave[sdr + '|' + m];
+        var vendas = r ? r.vendas : 0;
+        var mrr = r ? r.mrr : 0;
+        rowVendas += vendas; rowMrr += mrr;
+        colTotVendas[m] = (colTotVendas[m] || 0) + vendas;
+        colTotMrr[m] = (colTotMrr[m] || 0) + mrr;
+        h += '<td style="text-align:right;padding:.5rem .6rem;border-bottom:1px solid var(--border)">' + (vendas ? vendas : '<span style="color:var(--muted)">-</span>') + (vendas ? '<br><span style="color:var(--muted);font-size:.68rem">' + fmtReal(mrr) + '</span>' : '') + '</td>';
+      });
+      grandVendas += rowVendas; grandMrr += rowMrr;
+      h += '<td style="text-align:right;padding:.5rem .6rem;font-weight:700;border-bottom:1px solid var(--border)">' + rowVendas + '<br><span style="color:var(--muted);font-size:.68rem;font-weight:400">' + fmtReal(rowMrr) + '</span></td>';
+      if (comReunioes) {
+        var conv = rowReunioes ? Math.round(rowVendas / rowReunioes * 100) : 0;
+        h += '<td style="text-align:right;padding:.5rem .6rem;border-bottom:1px solid var(--border)"><span style="font-weight:700;color:' + (conv >= 15 ? 'var(--accent)' : 'var(--amber)') + '">' + conv + '%</span></td>';
+      }
+      h += '</tr>';
+    });
+    h += '<tr style="background:var(--surface2)">';
+    h += '<td style="padding:.5rem .6rem;font-weight:700">Total</td>';
+    if (comReunioes) h += '<td style="text-align:right;padding:.5rem .6rem;font-weight:700">' + grandReunioes + '</td>';
+    meses.forEach(function(m) {
+      h += '<td style="text-align:right;padding:.5rem .6rem;font-weight:700">' + (colTotVendas[m] || 0) + '<br><span style="color:var(--muted);font-size:.68rem;font-weight:400">' + fmtReal(colTotMrr[m] || 0) + '</span></td>';
+    });
+    h += '<td style="text-align:right;padding:.5rem .6rem;font-weight:700">' + grandVendas + '<br><span style="color:var(--muted);font-size:.68rem;font-weight:400">' + fmtReal(grandMrr) + '</span></td>';
+    if (comReunioes) {
+      var convTotal = grandReunioes ? Math.round(grandVendas / grandReunioes * 100) : 0;
+      h += '<td style="text-align:right;padding:.5rem .6rem;font-weight:700">' + convTotal + '%</td>';
+    }
+    h += '</tr>';
+    h += '</tbody></table></div></div>';
+    return h;
+  }
+  var html = '';
+  if (!dados.agendamento.length && !dados.venda.length) {
+    html += '<div class="chart-card"><div class="chart-card-title">MRR por Pré-vendedor</div>';
+    html += '<div class="chart-card-sub">Sem dados de MRR carregados.</div></div>';
+  } else {
+    html += tabelaHtml(
+      'MRR — por mês de agendamento',
+      'Vendas geradas por reuniões agendadas em cada mês (SDR = pré-vendedor que fez a reunião) · Conversão = vendas / reuniões do período · snapshot manual (Redshift), não é ao vivo',
+      dados.agendamento, true
+    );
+    html += tabelaHtml(
+      'MRR — por mês de venda (fechamento)',
+      'Vendas fechadas em cada mês, independente de quando a reunião foi agendada · snapshot manual (Redshift), não é ao vivo',
+      dados.venda, false
+    );
+  }
+  el.innerHTML = html;
+}
+
+
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+// ============================================================
+//  HELPERS DE EXIBIÇÃO
+// ============================================================
+function exibirNumero(v) {
+  return v == null ? '—' : Math.ceil(v).toString();
+}
+
+function somarArredondado(valores) {
+  return (valores || []).reduce(function(acc, v) {
+    return acc + (v == null ? 0 : Math.ceil(v));
+  }, 0);
+}
+
+function initials(name) {
+  if (!name) return '';
+  return name.split(' ').filter(Boolean).slice(0, 2).map(function(w) { return w[0]; }).join('').toUpperCase();
+}
+
+// Nome curto para eixos/legendas/seletores. Normalmente o 1º nome; mas se DOIS
+// vendedores compartilham o 1º nome (ex: "Pedro Dias" e "Pedro Porto"), desambigua
+// com a inicial do sobrenome → "Pedro D." / "Pedro P.". Automático p/ colisões futuras.
+function nomeCurto(name) {
+  if (!name) return '';
+  const partes = String(name).split(' ').filter(Boolean);
+  const primeiro = partes[0] || '';
+  // Conta quantos vendedores conhecidos têm o mesmo primeiro nome
+  const colisoes = (SELLERS || []).filter(function(s) {
+    return String(s).split(' ')[0] === primeiro;
+  }).length;
+  if (colisoes <= 1 || partes.length < 2) return primeiro;
+  const ultimo = partes[partes.length - 1];
+  return primeiro + ' ' + ultimo.charAt(0).toUpperCase() + '.';
+}
+
+// ============================================================
+//  RENDER OVERVIEW
+// ============================================================
+function renderOverview() {
+  const compilado = DASHBOARD_DATA.compilado;
+  const meta      = DASHBOARD_DATA.metaInfo;
+  const sv        = document.getElementById('filter-seller').value;
+
+  // KPIs do topo — VOLUME BRUTO (count = validados + a validar + não válidos)
+  const totalPeriodo = getTotalPorMetric('count');
+
+  // Esta semana / Hoje — sempre week/today (independe do filtro de período), volume bruto
+  // "Esta semana" agora é seg → dom COMPLETA (dias futuros aparecem como 0)
+  const today     = meta.today;
+  const weekStart = obterInicioSemana(today);
+  const weekEnd   = obterFimSemana_(today);  // domingo da mesma semana
+  const metasAll  = (DASHBOARD_DATA.metas && DASHBOARD_DATA.metas.items) || [];
+  const metasSeller = (sv === 'all') ? metasAll : metasAll.filter(function(i) { return i.vendedor === sv; });
+  const totalSemana = metasSeller.filter(function(i) { return i.date >= weekStart && i.date <= weekEnd; }).reduce(function(a, b) { return a + (b.count || 0); }, 0);
+  const totalHoje   = metasSeller.filter(function(i) { return i.date === today; }).reduce(function(a, b) { return a + (b.count || 0); }, 0);
+
+const ating = obterAtingimentoPorMes_();
+
+// Líder do período — APENAS VALIDADOS
+const validadosBy = getRealizadoByVendedor('validados');
+const ranked = Object.keys(validadosBy)
+  .map(function(v) { return { vendedor: v, realizado: validadosBy[v] || 0 }; })
+  .sort(function(a, b) { return b.realizado - a.realizado; });
+const leader = ranked.length > 0 ? ranked[0] : null;
+const leaderAtingRow = (leader && ating && !ating.isMesCorrente) ? (ating.rows || []).filter(function(r) { return r.vendedor === leader.vendedor; })[0] : null;
+const leaderRow = leader ? (compilado.rows || []).filter(function(r) { return r.vendedor === leader.vendedor; })[0] : null;
+const leaderMeta = leader ? (leaderAtingRow ? (leaderAtingRow.metaProRata || leaderAtingRow.metaTime || 0) : ((leaderRow && leaderRow.metaProRata) || getMetaParaPeriodo(leader.vendedor) || 0)) : 0;
+const topPct = leader && leaderMeta ? Math.round(leader.realizado / leaderMeta * 100) : 0;
+const leaderName  = leader ? leader.vendedor : '-';
+const leaderColor = leader ? colorFor(leader.vendedor) : 'var(--muted)';
+const leaderBadge = topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber' : 'badge-red';
+
+  const diasUteisFallback = 20;
+  const mediaDia = (Math.ceil(totalPeriodo) / diasUteisFallback).toFixed(1);
+
+  // KPI "Atingimento Projeção / Atingimento" — agora period-aware
+  // Mês corrente: usa col K do Compilado (projeção pro-rata)
+  // Mês finalizado: calcula realizado_validado / meta_total client-side (via obterAtingimentoPorMes_)
+// ating já calculado acima (period-aware, reaproveitado no badge do Líder do período)
+  let projPct = null;
+  if (ating) {
+    if (ating.isMesCorrente) {
+      // Mês corrente: usa o valor pronto da col K do Compilado
+      const projRow = (sv === 'all')
+        ? (ating.total || {})
+        : (ating.rows || []).filter(function(r) { return r.vendedor === sv; })[0] || {};
+      projPct = projRow.atingimentoProjecaoPctVsMetaProRata;
+    } else {
+      // Mês passado: usa atingimento calculado (realizado/meta)
+      const projRow = (sv === 'all')
+        ? (ating.total || {})
+        : (ating.rows || []).filter(function(r) { return r.vendedor === sv; })[0] || {};
+      projPct = projRow.atingimentoProRata;
+    }
+  }
+  const projPctLabel = (projPct == null) ? '—' : (projPct * 100).toFixed(1) + '%';
+  const projBadge = (projPct == null) ? 'badge-red'
+                  : projPct >= 1.0 ? 'badge-green'
+                  : projPct >= 0.8 ? 'badge-amber'
+                  : 'badge-red';
+  const projContexto = (sv === 'all') ? 'Time' : nomeCurto(sv);
+  const projTituloKPI = (ating && ating.isMesCorrente) ? 'Atingimento Projeção' : 'Atingimento';
+  const projSubKPI = (ating && ating.isMesCorrente)
+    ? `${projContexto} · vs Meta Pro Rata · mês corrente`
+    : `${projContexto} · vs Meta Total · ${ating ? ating.mesLabel : '—'} (mês finalizado)`;
+    const projTituloKPITip = (ating && ating.isMesCorrente)
+    ? 'Compara o que o time ja fez (realizado + 85% do que esta quase certo de validar) contra a meta proporcional aos dias ja passados no mes. Responde: como estamos indo ate agora, comparado com o esperado ate hoje?'
+    : 'Atingimento final do mes ja encerrado: realizado vs meta do mes inteiro.';
+
+    // KPI extra "Atingimento Projetado (Fim do Mes)" - projecao full-month real (coluna M do Compilado)
+    let projMesPct = null;
+    if (ating) {
+    if (ating.isMesCorrente) {
+    const projMesRow = (sv === 'all')
+    ? (ating.total || {})
+    : (ating.rows || []).filter(function(r) { return r.vendedor === sv; })[0] || {};
+    projMesPct = projMesRow.atingimentoProjetadoPctVsMetaMes;
+    } else {
+    const projMesRow = (sv === 'all')
+    ? (ating.total || {})
+    : (ating.rows || []).filter(function(r) { return r.vendedor === sv; })[0] || {};
+    projMesPct = projMesRow.atingimentoProRata;
+    }
+    }
+    const projMesPctLabel = (projMesPct == null) ? '-' : (projMesPct * 100).toFixed(1) + '%';
+    const projMesBadge = (projMesPct == null) ? 'badge-red'
+    : projMesPct >= 1.0 ? 'badge-green'
+    : projMesPct >= 0.8 ? 'badge-amber'
+    : 'badge-red';
+    const projMesTituloKPI = 'Atingimento Projetado (Fim do Mes)';
+    const projMesSubKPI = (ating && ating.isMesCorrente)
+    ? `${projContexto} vs Meta Mes - projecao full-month`
+    : `${projContexto} vs Meta Total - ${ating ? ating.mesLabel : '-'} (mes finalizado)`;
+    const projMesTituloKPITip = 'Projeta o realizado no ritmo atual ate o fim do mes (extrapolando pelos dias uteis restantes) e compara com a meta do mes inteiro. Responde: se continuarmos nesse ritmo, vamos bater a meta do mes?';
+
+  const sufixo = getSufixoPeriodo();
+  const subtitle = getSubtitlePeriodo();
+  const labelLider = sufixo === 'hoje' ? 'Líder hoje (válidos)'
+                   : sufixo === 'na semana' ? 'Líder da semana (válidos)'
+                   : sufixo === 'no período' ? 'Líder do período (válidos)'
+                   : 'Líder do mês (válidos)';
+
+  // Composição do volume — 4 contadores
+  const totalValidados  = getTotalPorMetric('validados');
+  const totalAValidar   = getTotalPorMetric('aValidar');
+  const totalNaoValidos = getTotalPorMetric('naoValidos');
+  const totalGeral      = totalValidados + totalAValidar + totalNaoValidos;
+  const pct = function(v) { return totalGeral > 0 ? (v / totalGeral * 100) : 0; };
+  const pctValidados  = pct(totalValidados);
+  const pctAValidar   = pct(totalAValidar);
+  const pctNaoValidos = pct(totalNaoValidos);
+
+  document.getElementById('tab-content').innerHTML = `
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">Total ${sufixo}</div>
+        <div class="metric-value">${Math.ceil(totalPeriodo)}</div>
+        <div class="metric-sub">${subtitle}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Esta semana</div>
+        <div class="metric-value">${totalSemana}</div>
+        <div class="metric-sub">${weekStart} a ${weekEnd}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Hoje</div>
+        <div class="metric-value">${totalHoje}</div>
+        <div class="metric-sub">${today}</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Média por dia</div>
+        <div class="metric-value">${mediaDia}</div>
+        <div class="metric-sub">~${diasUteisFallback} dias úteis</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">${labelLider}</div>
+        <div class="metric-value" style="font-size:18px;padding-top:6px;color:${leaderColor}">${nomeCurto(leaderName)}</div>
+        <span class="metric-badge ${leaderBadge}">${topPct}% da meta</span>
+      </div>
+      <div class="metric">
+        <div class="metric-label">${projTituloKPI} <span class="info-tip">i<span class="info-tip-content">${projTituloKPITip}</span></span></div>
+        <div class="metric-value" style="color:${projBadge === 'badge-green' ? 'var(--accent)' : projBadge === 'badge-amber' ? 'var(--amber)' : 'var(--red)'}">${projPctLabel}</div>
+        <div class="metric-sub">${projSubKPI}</div>
+      </div>
+      <div class="metric">
+<div class="metric-label">${projMesTituloKPI} <span class="info-tip">i<span class="info-tip-content">${projMesTituloKPITip}</span></span></div>
+>      <div class="metric-value" style="color:${projMesBadge === 'badge-green' ? 'var(--accent)' : projMesBadge === 'badge-amber' ? 'var(--amber)' : 'var(--red)'}">${projMesPctLabel}</div>
+      <div class="metric-sub">${projMesSubKPI}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">
+      Fonte: <strong style="color:var(--text)">Neo Crescimento - PV</strong> · KPIs do topo = volume bruto · Líder e charts abaixo = só passes válidos
+    </div>
+
+    <!-- Card de composição: Total / Validados / A Validar / Não Válidos -->
+    <div class="chart-card" style="margin-bottom:16px;">
+      <div class="chart-card-title">Composição do volume — ${periodoLabel()}</div>
+      <div class="chart-card-sub">Total = Validados + A Validar + Não Válidos · ${subtitle}</div>
+      <div class="metrics" style="margin-bottom:14px;">
+        <div class="metric"><div class="metric-label">Volume total</div><div class="metric-value">${Math.ceil(totalGeral)}</div></div>
+        <div class="metric"><div class="metric-label">Validados</div><div class="metric-value" style="color:var(--green)">${Math.ceil(totalValidados)}</div><div class="metric-sub">${pctValidados.toFixed(1)}%</div></div>
+        <div class="metric"><div class="metric-label">A validar</div><div class="metric-value" style="color:var(--amber)">${Math.ceil(totalAValidar)}</div><div class="metric-sub">${pctAValidar.toFixed(1)}%</div></div>
+        <div class="metric"><div class="metric-label">Não válidos</div><div class="metric-value" style="color:var(--red)">${Math.ceil(totalNaoValidos)}</div><div class="metric-sub">${pctNaoValidos.toFixed(1)}%</div></div>
+      </div>
+      ${totalGeral > 0 ? `
+        <div class="stacked-bar">
+          <div class="seg validados"   style="width:${pctValidados}%">${pctValidados >= 8 ? pctValidados.toFixed(1) + '%' : ''}</div>
+          <div class="seg a-validar"   style="width:${pctAValidar}%">${pctAValidar >= 8 ? pctAValidar.toFixed(1) + '%' : ''}</div>
+          <div class="seg nao-validos" style="width:${pctNaoValidos}%">${pctNaoValidos >= 8 ? pctNaoValidos.toFixed(1) + '%' : ''}</div>
+        </div>
+        <div class="stacked-bar-legend">
+          <span><span class="dot" style="background:var(--green)"></span>Validados</span>
+          <span><span class="dot" style="background:var(--amber)"></span>A validar</span>
+          <span><span class="dot" style="background:var(--red)"></span>Não válidos</span>
+        </div>
+      ` : '<div class="chart-card-sub" style="text-align:center;padding:16px;">Sem dados no período.</div>'}
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-title">Agendamentos por vendedor — ${periodoLabel()}</div>
+        <div class="chart-card-sub">Stack: Validados / A validar / Não válidos</div>
+        <div class="stacked-bar-legend" style="margin-top:0;margin-bottom:10px;">
+          <span><span class="dot" style="background:var(--green)"></span>Validados</span>
+          <span><span class="dot" style="background:var(--amber)"></span>A validar</span>
+          <span><span class="dot" style="background:var(--red)"></span>Não válidos</span>
+        </div>
+        <div class="chart-wrap" style="height:240px;"><canvas id="c-vol" role="img" aria-label="Volume por vendedor (stacked)"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Atingimento da meta — ${periodoLabel()}</div>
+        <div class="chart-card-sub">Realizado validado ${sufixo} vs meta mensal (Meta Pré vendedor)</div>
+        <div class="chart-wrap" style="height:240px;"><canvas id="c-meta" role="img" aria-label="Atingimento da meta"></canvas></div>
+      </div>
+      <div class="chart-card span2">
+        <div class="chart-card-title">Evolução diária (válidos) — ${periodoLabel()}</div>
+        <div class="legend" id="leg-week"></div>
+        <div class="chart-wrap" style="height:220px;"><canvas id="c-week" role="img" aria-label="Evolução diária por vendedor"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  destroyChart('vol'); destroyChart('meta'); destroyChart('week');
+
+  // Stacked bar chart — Validados / A Validar / Não Válidos por vendedor (só os válidos contam pra "realizado", mas mostramos os 3 segments para contexto)
+  const vendedoresMostrar = (sv === 'all') ? SELLERS : [sv];
+  const validadosArr  = vendedoresMostrar.map(function(v) { return Math.ceil((getRealizadoByVendedor('validados')[v]) || 0); });
+  const aValidarArr   = vendedoresMostrar.map(function(v) { return Math.ceil((getRealizadoByVendedor('aValidar')[v]) || 0); });
+  const naoValidosArr = vendedoresMostrar.map(function(v) { return Math.ceil((getRealizadoByVendedor('naoValidos')[v]) || 0); });
+
+  // Mapa dataset idx → status key (pra usar no onClick → filtrar deals)
+  const volStatusByDsIdx = ['validado', 'aValidar', 'naoValido'];
+
+  charts['vol'] = new Chart(document.getElementById('c-vol'), {
+    type: 'bar',
+    data: {
+      labels: vendedoresMostrar.map(function(s) { return nomeCurto(s); }),
+      datasets: [
+        { label: 'Validados',   data: validadosArr,  backgroundColor: '#00FF41', borderRadius: 4, stack: 's' },
+        { label: 'A validar',   data: aValidarArr,   backgroundColor: '#FFC233', borderRadius: 4, stack: 's' },
+        { label: 'Não válidos', data: naoValidosArr, backgroundColor: '#FF3333', borderRadius: 4, stack: 's' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,255,65,0.06)' }, ticks: { color: '#6E8A78' } },
+        x: { stacked: true, grid: { display: false }, ticks: { color: '#6E8A78' } }
+      },
+      // Hover: troca cursor pra pointer indicando que é clicável
+      onHover: function(evt, els) {
+        if (evt && evt.native && evt.native.target) {
+          evt.native.target.style.cursor = els && els.length ? 'pointer' : 'default';
+        }
+      },
+      // Click no segmento → overlay com deals daquele vendedor + status
+      onClick: function(evt, els) {
+        if (!els || !els.length) return;
+        const el = els[0];
+        const vendIdx  = el.index;
+        const statIdx  = el.datasetIndex;
+        const vendedor = vendedoresMostrar[vendIdx];        // nome completo (não o split)
+        const status   = volStatusByDsIdx[statIdx] || 'validado';
+        mostrarOverlayDeals_(vendedor, status, evt);
+      }
+    }
+  });
+
+  // Atingimento da meta — APENAS VALIDADOS vs meta mensal (fonte: aba Meta Pré vendedor)
+  const sellersAll = SELLERS;
+  const validadosAll = sellersAll.map(function(s) { return Math.ceil(validadosBy[s] || 0); });
+  const metasArr = sellersAll.map(function(s) { return getMetaParaPeriodo(s) || 0; });
+  const metaColors = sellersAll.map(function(s) {
+    const realiz = validadosBy[s] || 0;
+    const m = getMetaParaPeriodo(s);
+    if (m == null || m === 0) return 'rgba(255,255,255,0.15)'; // sem meta definida → cinza
+    const pctV = realiz / m * 100;
+    return pctV >= 100 ? '#00FF41' : pctV >= 80 ? '#FFC233' : '#FF3333';
+  });
+
+  // Atingimento por vendedor (decimal) pra reuso nos rótulos
+  const atingPctBy = sellersAll.map(function(s) {
+    const m = getMetaParaPeriodo(s);
+    if (m == null || m === 0) return null;
+    return (validadosBy[s] || 0) / m;
+  });
+
+  // Opções base + datalabels só nesse chart (plugin registrado per-chart abaixo)
+  const metaOpts = chartOptionsBar_();
+  metaOpts.layout = { padding: { top: 30 } }; // espaço pro rótulo de % acima das barras
+  metaOpts.plugins = Object.assign({}, metaOpts.plugins || {}, {
+    legend: { display: false },
+    datalabels: {
+      labels: {
+        // Valor do Realizado — TOPO da barra (dataset idx 0)
+        realizadoVal: {
+          anchor: 'end', align: 'top',
+          color: '#F2FFF6',
+          font: { weight: 700, size: 11, family: "'JetBrains Mono', monospace" },
+          formatter: function(v, ctx) {
+            if (ctx.datasetIndex !== 0) return '';
+            const n = Math.round(v);
+            return n > 0 ? n : '';
+          }
+        },
+        // Valor da Meta — DENTRO da barra (centro), pra não brigar com o %
+        metaVal: {
+          anchor: 'center', align: 'center',
+          color: 'rgba(242,255,246,0.65)',
+          font: { weight: 700, size: 11, family: "'JetBrains Mono', monospace" },
+          formatter: function(v, ctx) {
+            if (ctx.datasetIndex !== 1) return '';
+            const n = Math.round(v);
+            return n > 0 ? n : '';
+          }
+        },
+        // % atingimento — ACIMA da barra Meta, colorido por threshold
+        pct: {
+          anchor: 'end', align: 'top',
+          font: { weight: 900, size: 13, family: "'JetBrains Mono', monospace" },
+          color: function(ctx) {
+            if (ctx.datasetIndex !== 1) return 'transparent';
+            const p = atingPctBy[ctx.dataIndex];
+            if (p == null) return 'rgba(110,138,120,0.7)';
+            return p >= 1.0 ? '#00FF41' : p >= 0.8 ? '#FFC233' : '#FF3333';
+          },
+          formatter: function(v, ctx) {
+            if (ctx.datasetIndex !== 1) return '';
+            const p = atingPctBy[ctx.dataIndex];
+            if (p == null) return '—';
+            return Math.round(p * 100) + '%';
+          }
+        }
+      }
+    }
+  });
+
+  // Ativa datalabels só se o CDN do plugin carregou (graceful degradation se falhar)
+  const datalabelsPlugins = (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : [];
+
+  charts['meta'] = new Chart(document.getElementById('c-meta'), {
+    type: 'bar',
+    data: {
+      labels: sellersAll.map(function(s) { return nomeCurto(s); }),
+      datasets: [
+        { label: 'Validados', data: validadosAll, backgroundColor: metaColors, borderRadius: 5 },
+        { label: 'Meta', data: metasArr, backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 }
+      ]
+    },
+    options: metaOpts,
+    plugins: datalabelsPlugins  // ativa rótulos só nesse chart se plugin carregou
+  });
+
+  // Evolução diária no período — APENAS VALIDADOS
+  const metasFiltradas = obterMetasFiltradas();
+  const datasArr = uniqueDates_(metasFiltradas).sort();
+  const datasLabels = datasArr.map(function(d) { return d.slice(8) + '/' + d.slice(5, 7); });
+  const totsByVendor = {};
+  metasFiltradas.forEach(function(i) { totsByVendor[i.vendedor] = (totsByVendor[i.vendedor] || 0) + (i.validados || 0); });
+  const vendedoresAtivos = (sv === 'all')
+    ? Object.keys(totsByVendor).sort(function(a, b) { return (totsByVendor[b] || 0) - (totsByVendor[a] || 0); }).slice(0, 5)
+    : [sv];
+
+  const legW = document.getElementById('leg-week');
+  vendedoresAtivos.forEach(function(s) {
+    legW.innerHTML += `<div class="legend-item"><span class="legend-dot" style="background:${colorFor(s)}"></span>${nomeCurto(s)}</div>`;
+  });
+
+  charts['week'] = new Chart(document.getElementById('c-week'), {
+    type: 'line',
+    data: {
+      labels: datasLabels,
+      datasets: vendedoresAtivos.map(function(s) {
+        return {
+          label: nomeCurto(s),
+          data: datasArr.map(function(d) {
+            return metasFiltradas
+              .filter(function(x) { return x.vendedor === s && x.date === d; })
+              .reduce(function(a, b) { return a + (b.validados || 0); }, 0);
+          }),
+          borderColor: colorFor(s),
+          backgroundColor: colorFor(s) + '22',
+          tension: 0.35, fill: false, pointRadius: 4, pointHoverRadius: 7
+        };
+      })
+    },
+    options: chartOptionsLine_()
+  });
+}
+
+// ============================================================
+//  RENDER RANKING
+// ============================================================
+function renderRanking() {
+  const meta = DASHBOARD_DATA.metaInfo;
+  const sv = document.getElementById('filter-seller').value;
+
+  // Ranking agora respeita filtro de período: mês corrente usa Compilado (com fórmulas),
+  // mês passado calcula client-side. Pra preset semana/hoje fica no mês corrente.
+  const ating = obterAtingimentoPorMes_() || { isMesCorrente: true, mesLabel: '—', rows: [], total: {} };
+  const baseRows = (ating.rows || [])
+    .filter(function(r) { return sv === 'all' || r.vendedor === sv; });
+
+  // Ordena por Realizado (decrescente)
+  const ranked = baseRows.slice().sort(function(a, b) {
+    return (b.realizado || 0) - (a.realizado || 0);
+  });
+
+  // Helper: badge colorido para Atingimento (decimal 0..1+)
+  const badgeForPct = function(pctDecimal) {
+    if (pctDecimal == null) return { cls: 'badge-red', label: '—' };
+    const p = pctDecimal * 100;
+    const cls = p >= 100 ? 'badge-green' : p >= 80 ? 'badge-amber' : 'badge-red';
+    return { cls: cls, label: p.toFixed(1) + '%' };
+  };
+
+  const totalRow = ating.total || {};
+  const totalBadge = badgeForPct(totalRow.atingimentoProRata);
+
+  const rows = ranked.map(function(r, i) {
+    const meta_       = Math.ceil(r.metaTime || 0);
+    const metaProRata = Math.ceil(r.metaProRata || 0);
+    const realizado   = Math.ceil(r.realizado || 0);
+    const atingBadge  = badgeForPct(r.atingimentoProRata);
+
+    const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+    const medal = String(i + 1).padStart(2, '0');
+    return `
+      <div class="table-row grid-rank-mtd ${rankClass}">
+        <div class="rank-num">${medal}</div>
+        <div class="seller-cell">
+          <div class="avatar" style="background:${colorFor(r.vendedor)}22;color:${colorFor(r.vendedor)}">${initials(r.vendedor)}</div>
+          <div>
+            <div class="seller-name">${r.vendedor}</div>
+          </div>
+        </div>
+        <div style="text-align:center;color:var(--muted)">${meta_}</div>
+        <div style="text-align:center;color:var(--muted)">${metaProRata}</div>
+        <div style="text-align:center;font-weight:600">${realizado}</div>
+        <div style="text-align:center"><span class="metric-badge ${atingBadge.cls}">${atingBadge.label}</span></div>
+      </div>`;
+  }).join('');
+
+  // Disclaimer + labels variam conforme mês corrente vs finalizado
+  const isCurr = ating.isMesCorrente;
+  const headerInfo = isCurr
+    ? `<strong style="color:var(--text)">Mês corrente</strong> (${meta.startMonth} a ${meta.endMonth}) · Realizado MTD com pro-rata projetado.<br>Fonte: <strong style="color:var(--text)">Compilado de Passes</strong> (cols B/C/D/E)`
+    : `<strong style="color:var(--accent)">Mês finalizado:</strong> ${ating.mesIni} a ${ating.mesFim} · Atingimento = Realizado validado ÷ Meta Total.<br>Fonte: <strong style="color:var(--text)">Neo Crescimento - PV</strong> + <strong style="color:var(--text)">Meta Pré vendedor</strong>`;
+  const colProRataLabel = isCurr ? 'Pro Rata' : 'Meta Total';
+  const colRealizadoLabel = isCurr ? 'Realizado MTD' : 'Realizado';
+
+  document.getElementById('tab-content').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6;">
+      ${headerInfo}
+    </div>
+    <div class="table-card">
+      <div class="table-head grid-rank-mtd">
+        <div></div>
+        <div>Vendedor</div>
+        <div style="text-align:center">Meta</div>
+        <div style="text-align:center">${colProRataLabel}</div>
+        <div style="text-align:center">${colRealizadoLabel}</div>
+        <div style="text-align:center">Atingimento</div>
+      </div>
+      ${rows || '<div class="table-row"><div></div><div style="color:var(--muted)">Sem vendedores.</div></div>'}
+      <div class="table-row grid-rank-mtd" style="background:var(--surface2);font-weight:600;">
+        <div></div>
+        <div style="text-transform:uppercase;font-size:11px;letter-spacing:0.06em;color:var(--muted);">Total</div>
+        <div style="text-align:center">${Math.ceil(totalRow.metaTime || 0)}</div>
+        <div style="text-align:center">${Math.ceil(totalRow.metaProRata || 0)}</div>
+        <div style="text-align:center">${Math.ceil(totalRow.realizado || 0)}</div>
+        <div style="text-align:center"><span class="metric-badge ${totalBadge.cls}">${totalBadge.label}</span></div>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+//  RENDER EVOLUÇÃO
+// ============================================================
+function renderEvolucao() {
+  const sv = document.getElementById('filter-seller').value;
+
+  // Filtro period-aware (respeita o seletor de período)
+  const items = obterTimelineFiltrada();
+
+  const byDay = items.reduce(function(acc, i) {
+    acc[i.date] = (acc[i.date] || 0) + i.count;
+    return acc;
+  }, {});
+  const days = Object.keys(byDay).sort();
+  const dayLabels = days.map(function(d) { return d.slice(8) + '/' + d.slice(5, 7); });
+
+  // Por semana ISO (segunda como início)
+  const weekMap = {};
+  items.forEach(function(i) {
+    const wk = obterInicioSemana(i.date);
+    weekMap[wk] = (weekMap[wk] || 0) + i.count;
+  });
+  const wkKeys = Object.keys(weekMap).sort();
+
+  const subtitle = getSubtitlePeriodo();
+
+  // Boxes de evolução (deltas vs período anterior equivalente).
+  // Usa a timeline INTEIRA (60 dias) — respeita seller e dimensões mas NÃO o filtro de período.
+  const evo = calcularEvolucaoDeltas_();
+  const renderBoxEvo = function(titulo, atualLabel, anteriorLabel, atual, anterior) {
+    let deltaPct, deltaIcon, deltaCls;
+    if (anterior === 0 && atual === 0) {
+      deltaPct = '0%'; deltaIcon = '≈'; deltaCls = 'badge-amber';
+    } else if (anterior === 0) {
+      deltaPct = 'novo'; deltaIcon = '▲'; deltaCls = 'badge-green';
+    } else {
+      const d = ((atual - anterior) / anterior) * 100;
+      deltaPct = (Math.abs(d) < 0.1 ? '0%' : (d > 0 ? '+' : '') + d.toFixed(1) + '%');
+      deltaIcon = d > 0.1 ? '▲' : d < -0.1 ? '▼' : '≈';
+      deltaCls  = d > 0.1 ? 'badge-green' : d < -0.1 ? 'badge-red' : 'badge-amber';
+    }
+    return `
+      <div class="metric">
+        <div class="metric-label">${titulo}</div>
+        <div class="metric-value">${atual}</div>
+        <div class="metric-sub">${atualLabel} · vs ${anteriorLabel}: ${anterior}</div>
+        <span class="metric-badge ${deltaCls}">${deltaIcon} ${deltaPct}</span>
+      </div>`;
+  };
+
+  document.getElementById('tab-content').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">
+      Fonte: <strong style="color:var(--text)">Passes Do Mês</strong> (visão de passes — quando o passe foi feito) · Cobre últimos 60 dias
+    </div>
+
+    <!-- Boxes de evolução: ritmo diário / semanal / mensal vs período anterior equivalente -->
+    <div class="metrics" style="margin-bottom:18px;">
+      ${renderBoxEvo('Δ Diário',  'Hoje',         'ontem',          evo.diario.atual,  evo.diario.anterior)}
+      ${renderBoxEvo('Δ Semanal', 'Esta semana',  'semana passada', evo.semanal.atual, evo.semanal.anterior)}
+      ${renderBoxEvo('Δ Mensal',  'Mês corrente', 'mês anterior',   evo.mensal.atual,  evo.mensal.anterior)}
+    </div>
+    <div class="chart-grid single">
+      <div class="chart-card">
+        <div class="chart-card-title">Total diário de agendamentos — ${subtitle}</div>
+        <div class="chart-wrap" style="height:220px;"><canvas id="c-ev" role="img" aria-label="Total diário"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Total por semana — ${periodoLabel()}</div>
+        <div class="chart-wrap" style="height:180px;"><canvas id="c-wk" role="img" aria-label="Total semanal"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Agendamentos acumulados — por vendedor</div>
+        <div class="chart-card-sub">Acumulado dentro de ${subtitle}</div>
+        <div class="legend" id="leg-acc"></div>
+        <div class="chart-wrap" style="height:240px;"><canvas id="c-acc" role="img" aria-label="Acumulado por vendedor"></canvas></div>
+      </div>
+      ${days.length === 0 ? '<div class="chart-card-sub" style="color:var(--muted);text-align:center;padding:24px;">Sem dados em Passes Do Mês para o período selecionado (a timeline cobre apenas os últimos 60 dias).</div>' : ''}
+    </div>`;
+
+  destroyChart('ev'); destroyChart('wk'); destroyChart('acc');
+
+  // Plugin: desenha label de evolução entre cada par de barras consecutivas.
+  // Redesign final: dois rótulos empilhados, centralizados entre as barras.
+  //   Linha 1 (topo, grande): % de variação — "headline"
+  //   Linha 2 (baixo, menor): seta + valor absoluto — "detalhe"
+  //   Cor: verde positivo · coral negativo · cinza neutro
+  //   Estável (|Δ%| < 5): apenas "≈ 0%" em fonte média, esmaecida
+  const evolucaoLabelsPlugin = {
+    id: 'evolucaoLabelsBetween',
+    afterDatasetsDraw: function(chart) {
+      const ctx = chart.ctx;
+      const ds = chart.data.datasets[0];
+      const meta = chart.getDatasetMeta(0);
+      if (!ds || !meta || !meta.data) return;
+      const data = ds.data;
+      const bars = meta.data;
+
+      const drawText = function(txt, x, y, font, color) {
+        ctx.save();
+        ctx.font = font;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // Sombra dupla sutil pra legibilidade contra barras neon
+        ctx.fillStyle = 'rgba(8,18,12,0.92)';
+        ctx.fillText(txt, x + 0.6, y + 0.6);
+        ctx.fillText(txt, x - 0.6, y - 0.6);
+        ctx.fillStyle = color;
+        ctx.fillText(txt, x, y);
+        ctx.restore();
+      };
+
+      for (let i = 1; i < data.length; i++) {
+        const prev = data[i - 1];
+        const curr = data[i];
+        const prevBar = bars[i - 1];
+        const currBar = bars[i];
+        if (!prevBar || !currBar) continue;
+
+        const deltaAbs = curr - prev;
+        const deltaPct = prev > 0 ? (deltaAbs / prev * 100) : null;
+        const magnitude = deltaPct == null ? Infinity : Math.abs(deltaPct);
+        const isSignif = magnitude >= 5;
+
+        // Cor por direção (com zona neutra ±5%)
+        let cor;
+        if (deltaPct == null)         cor = '#00FF41';   // vem do zero (novo)
+        else if (deltaPct >= 5)       cor = '#00FF41';   // alta
+        else if (deltaPct <= -5)      cor = '#FF6B6B';   // queda
+        else                          cor = 'rgba(110,138,120,0.6)'; // estável
+
+        // Posição: centro entre as barras (xMid) + altura calculada pra caber 2 linhas
+        const xMid = (prevBar.x + currBar.x) / 2;
+        const yTop = Math.min(prevBar.y, currBar.y);
+        const yBase = Math.max(yTop - 6, 16);  // base = onde fica a linha de baixo
+
+        const absVal = Math.abs(deltaAbs);
+        const arrow = deltaAbs > 0 ? '↑' : (deltaAbs < 0 ? '↓' : '·');
+
+        if (!isSignif && deltaPct != null) {
+          // Estável: 1 linha só, esmaecido, fonte média
+          drawText('≈  0%', xMid, yBase - 6,
+            '500 10px "JetBrains Mono", monospace', cor);
+        } else if (deltaPct == null) {
+          // Novo (prev=0): empilha "novo" em cima, valor embaixo
+          drawText('novo',    xMid, yBase - 14, '800 12px "JetBrains Mono", monospace', cor);
+          drawText(arrow + ' ' + absVal, xMid, yBase, '600 10px "JetBrains Mono", monospace', cor);
+        } else {
+          // Movimento significativo: % grande em cima, abs+seta embaixo
+          const sinalPct = deltaPct > 0 ? '+' : '−';
+          const pctAbs = Math.abs(Math.round(deltaPct));
+          drawText(sinalPct + pctAbs + '%', xMid, yBase - 14,
+            '800 12px "JetBrains Mono", monospace', cor);
+          drawText(arrow + ' ' + absVal, xMid, yBase,
+            '600 10px "JetBrains Mono", monospace', cor);
+        }
+      }
+    }
+  };
+
+  // Opções base + padding-top pra caber os labels empilhados (% em cima, abs embaixo)
+  const evOpts = chartOptionsBar_({ xAutoSkip: false });
+  evOpts.layout = { padding: { top: 36 } };
+  const wkOpts = chartOptionsBar_();
+  wkOpts.layout = { padding: { top: 36 } };
+
+  charts['ev'] = new Chart(document.getElementById('c-ev'), {
+    type: 'bar',
+    data: { labels: dayLabels, datasets: [{ data: days.map(function(d) { return byDay[d]; }), backgroundColor: '#00FF41', borderRadius: 4 }] },
+    options: evOpts,
+    plugins: [evolucaoLabelsPlugin]
+  });
+
+  charts['wk'] = new Chart(document.getElementById('c-wk'), {
+    type: 'bar',
+    data: {
+      labels: wkKeys.map(function(k) { return 'Sem ' + k.slice(5); }),
+      datasets: [{ data: wkKeys.map(function(k) { return weekMap[k]; }), backgroundColor: '#00FF41', borderRadius: 6, borderSkipped: false }]
+    },
+    options: wkOpts,
+    plugins: [evolucaoLabelsPlugin]
+  });
+
+  // Acumulado
+  const sellersToShow = (sv === 'all') ? SELLERS : [sv];
+  const legAcc = document.getElementById('leg-acc');
+  legAcc.innerHTML = '';
+  sellersToShow.forEach(function(s) {
+    legAcc.innerHTML += `<div class="legend-item"><span class="legend-dot" style="background:${colorFor(s)}"></span>${nomeCurto(s)}</div>`;
+  });
+
+  charts['acc'] = new Chart(document.getElementById('c-acc'), {
+    type: 'line',
+    data: {
+      labels: dayLabels,
+      datasets: sellersToShow.map(function(s) {
+        let acc = 0;
+        return {
+          label: nomeCurto(s),
+          data: days.map(function(d) {
+            acc += items
+              .filter(function(x) { return x.vendedor === s && x.date === d; })
+              .reduce(somaCount_, 0);
+            return acc;
+          }),
+          borderColor: colorFor(s),
+          backgroundColor: colorFor(s) + '22',
+          tension: 0.3, fill: false,
+          pointRadius: 3,           // pontos sempre visíveis (antes era 0 = sem hover)
+          pointHoverRadius: 6,
+          borderWidth: 2
+        };
+      })
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index', intersect: false,
+          backgroundColor: 'rgba(8,32,15,0.96)',
+          titleColor: '#F2FFF6', bodyColor: '#F2FFF6',
+          borderColor: 'rgba(0,255,65,0.30)', borderWidth: 1,
+          padding: 12, cornerRadius: 8,
+          callbacks: {
+            label: function(ctx) {
+              return ctx.dataset.label + ': ' + ctx.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(0,255,65,0.06)' }, ticks: { color: '#6E8A78' } },
+        x: { grid: { display: false }, ticks: { color: '#6E8A78', autoSkip: true, maxTicksLimit: 12, font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ============================================================
+//  RENDER FUNIL vs META
+// ============================================================
+function renderFunil() {
+  const fl = DASHBOARD_DATA.funilLeads;
+  if (!fl || !fl.vendedores || fl.vendedores.length === 0) {
+    document.getElementById('tab-content').innerHTML = `
+      <div class="chart-card"><div class="chart-card-title">
+        Sem dados de funil para o período selecionado.
+      </div></div>`;
+    return;
+  }
+
+  const sv = document.getElementById('filter-seller').value;
+  const vendedoresMostrar = (sv === 'all')
+    ? fl.vendedores
+    : fl.vendedores.filter(function(v) { return v === sv; });
+
+  // Recalcula agregados (mes/safra) considerando filtros de dimensão.
+  // Sem filtros ativos, usa o agregado pronto que vem do backend (caminho rápido).
+  const agregados = recalcularAgregadosFunil_(fl, vendedoresMostrar);
+
+  // Card "Total" agregando todos os vendedores
+  const totalCardHtml = (sv === 'all') ? renderFunilCard_('Total', agregados.mes['Total'], agregados.safra['Total'], '#00FF41') : '';
+
+  // Cards por vendedor
+  const cardsHtml = vendedoresMostrar.map(function(v) {
+    return renderFunilCard_(v, agregados.mes[v], agregados.safra[v], colorFor(v));
+  }).join('');
+
+  // Bloco analítico por tipo de estabelecimento — só quando 1 vendedor está filtrado.
+  // Stack chart (largo) à esquerda + tabela de conversões (compacta) à direita.
+  const stackBlocoHtml = (sv !== 'all') ? `
+    <div class="stack-tipo-grid">
+      <div class="chart-card">
+        <div class="chart-card-title">Composição por tipo de estabelecimento — ${nomeCurto(sv)} · Visão Mês</div>
+        <div class="chart-card-sub">Cada etapa empilhada por tipo de estabelecimento (col P de Base Leads)</div>
+        <div class="legend" id="leg-stack-tipo" style="margin-bottom:8px;"></div>
+        <div class="chart-wrap" style="height:${Math.max(160, 60 + 4 * 50)}px;"><canvas id="c-funil-tipo" role="img" aria-label="Composição por tipo de estabelecimento"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Conversão por tipo · ${nomeCurto(sv)}</div>
+        <div class="chart-card-sub">% entre etapas (Visão Mês). L→A é a chave do handoff PV.</div>
+        <div id="conv-table-tipo" style="margin-top:6px;"></div>
+      </div>
+    </div>` : '';
+
+  const filtrosAtivos = temFiltrosDimensoesAtivos_();
+  const disclaimerFiltros = filtrosAtivos ? `
+    <div style="font-size:11px;color:var(--amber);margin-top:6px;font-weight:700;">
+      ⓘ Filtros aplicados — agregados recalculados client-side a partir de Base Leads
+    </div>` : '';
+
+  document.getElementById('tab-content').innerHTML = `
+    <div class="chart-card" style="margin-bottom:18px;">
+      <div class="chart-card-title">Funil de leads — LAV → Conectado → Agendado → Ganho</div>
+      <div class="chart-card-sub">
+        Fonte: Base Leads 2025-2026 · Período: ${fl.dateRange.start} → ${fl.dateRange.end}
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.7;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;">
+        <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent);margin-right:8px;vertical-align:middle;"></span><strong style="color:var(--text);font-weight:700">Visão Mês</strong> — linhas onde a data de cada etapa caiu na janela selecionada.</div>
+        <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:0.45;margin-right:8px;vertical-align:middle;"></span><strong style="color:var(--text);font-weight:700">Visão Safra</strong> — linhas onde a data de criação caiu na janela e o lead atingiu a etapa.</div>
+      </div>
+      ${disclaimerFiltros}
+    </div>
+    <div class="funil-grid">
+      ${totalCardHtml}
+      ${cardsHtml}
+    </div>
+    ${stackBlocoHtml}`;
+
+  // Renderiza o chart stack + a tabela de conversões se o bloco foi montado
+  if (sv !== 'all') {
+    renderStackTipoEstab_(fl, sv);
+    renderConvTableTipo_(fl, sv);
+  }
+}
+
+// Recalcula mes/safra por vendedor (e Total) a partir do fatiado, aplicando filtros de dimensão.
+// Sem filtros ativos, retorna o agregado pronto do backend (rápido, sem re-cálculo).
+function recalcularAgregadosFunil_(fl, vendedoresMostrar) {
+  if (!temFiltrosDimensoesAtivos_()) {
+    return { mes: fl.mes, safra: fl.safra };
+  }
+
+  const dim = getFiltrosDimensoes_();
+  const fatiado = fl.fatiado || [];
+
+  // Inicializa zeros pra todos os vendedores + Total
+  const zero = function() { return { lav: 0, conectado: 0, agendado: 0, ganho: 0 }; };
+  const mes = { Total: zero() }, safra = { Total: zero() };
+  vendedoresMostrar.forEach(function(v) { mes[v] = zero(); safra[v] = zero(); });
+
+  fatiado.forEach(function(f) {
+    if (!aplicarFiltrosDimensoes_(f, dim)) return;
+    if (!mes[f.vendedor]) return; // vendedor fora da lista mostrada
+    ['lav','conectado','agendado','ganho'].forEach(function(et) {
+      mes[f.vendedor][et]   += f.mes[et]   || 0;
+      safra[f.vendedor][et] += f.safra[et] || 0;
+      mes.Total[et]   += f.mes[et]   || 0;
+      safra.Total[et] += f.safra[et] || 0;
+    });
+  });
+
+  return { mes: mes, safra: safra };
+}
+
+// Renderiza horizontal stacked bar chart com 4 barras (etapas) empilhadas por tipo de estabelecimento.
+// Só usa Visão Mês. Aplica filtros de dimensão (Origem/Perfil/Tipo).
+function renderStackTipoEstab_(fl, vendedor) {
+  const dim = getFiltrosDimensoes_();
+  const fatiado = (fl.fatiado || []).filter(function(f) {
+    if (f.vendedor !== vendedor) return false;
+    return aplicarFiltrosDimensoes_(f, dim);
+  });
+
+  // Coleta tipos únicos (sempre incluindo "Não informado" se aparecer)
+  const tipos = {};
+  fatiado.forEach(function(f) { tipos[f.tipoEstab] = true; });
+  const tiposLista = Object.keys(tipos).sort();
+
+  if (tiposLista.length === 0) {
+    document.getElementById('c-funil-tipo').parentElement.innerHTML =
+      '<div class="chart-card-sub" style="text-align:center;padding:18px;">Sem dados para o vendedor + filtros aplicados.</div>';
+    return;
+  }
+
+  // Paleta pros tipos (verde / azul / âmbar / cinza pra "Não informado")
+  const palettTipos = ['#00FF41', '#38bdf8', '#FFC233', '#a78bfa', '#fb7185', '#e879f9'];
+  const corDoTipo = function(tipo, idx) {
+    if (tipo === 'Não informado') return '#6E8A78';
+    return palettTipos[idx % palettTipos.length];
+  };
+
+  const etapas = ['lav', 'conectado', 'agendado', 'ganho'];
+  const etapasLabel = ['LAV', 'Conectado', 'Agendado', 'Ganho'];
+
+  // Pra cada tipo (= dataset), array de 4 valores (etapas)
+  const datasets = tiposLista.map(function(tipo, idx) {
+    return {
+      label: tipo,
+      data: etapas.map(function(et) {
+        return fatiado
+          .filter(function(f) { return f.tipoEstab === tipo; })
+          .reduce(function(acc, f) { return acc + (f.mes[et] || 0); }, 0);
+      }),
+      backgroundColor: corDoTipo(tipo, idx),
+      borderRadius: 4,
+      stack: 's'
+    };
+  });
+
+  // Legenda HTML acima do canvas
+  const legEl = document.getElementById('leg-stack-tipo');
+  legEl.innerHTML = '';
+  tiposLista.forEach(function(tipo, idx) {
+    legEl.innerHTML += `<div class="legend-item"><span class="legend-dot" style="background:${corDoTipo(tipo, idx)}"></span>${tipo}</div>`;
+  });
+
+  destroyChart('funil-tipo');
+  // Ativa datalabels só se o plugin carregou
+  const stackDLPlugins = (typeof ChartDataLabels !== 'undefined') ? [ChartDataLabels] : [];
+
+  charts['funil-tipo'] = new Chart(document.getElementById('c-funil-tipo'), {
+    type: 'bar',
+    data: { labels: etapasLabel, datasets: datasets },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index', intersect: false,
+          backgroundColor: 'rgba(8,32,15,0.96)',
+          titleColor: '#F2FFF6', bodyColor: '#F2FFF6',
+          borderColor: 'rgba(0,255,65,0.3)', borderWidth: 1,
+          padding: 12, cornerRadius: 8,
+          callbacks: {
+            label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.x; }
+          }
+        },
+        // Rótulos centralizados em cada segmento da pilha. 'display: auto' esconde
+        // automaticamente labels que não cabem na largura do segmento.
+        datalabels: {
+          display: 'auto',
+          anchor: 'center', align: 'center',
+          color: '#F2FFF6',
+          textStrokeColor: 'rgba(4,20,10,0.9)',
+          textStrokeWidth: 3,
+          font: { weight: 800, size: 13, family: "'JetBrains Mono', monospace" },
+          formatter: function(v) { return v > 0 ? v : ''; }
+        }
+      },
+      scales: {
+        x: { stacked: true, beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6E8A78' } },
+        y: { stacked: true, grid: { display: false }, ticks: { color: '#F2FFF6', font: { weight: 700 } } }
+      }
+    },
+    plugins: stackDLPlugins
+  });
+}
+
+// Tabela compacta: 1 linha por tipo de estabelecimento, colunas com as 3 conversões
+// entre etapas + LAV→Agendado (handoff chave do PV).
+// Renderiza ao lado do stack chart. Mesma paleta de cores dos tipos pra correlacionar.
+function renderConvTableTipo_(fl, vendedor) {
+  const dim = getFiltrosDimensoes_();
+  const fatiado = (fl.fatiado || []).filter(function(f) {
+    if (f.vendedor !== vendedor) return false;
+    return aplicarFiltrosDimensoes_(f, dim);
+  });
+
+  // Agrega volumes Visão Mês por tipo
+  const porTipo = {};
+  fatiado.forEach(function(f) {
+    if (!porTipo[f.tipoEstab]) porTipo[f.tipoEstab] = { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+    porTipo[f.tipoEstab].lav       += f.mes.lav       || 0;
+    porTipo[f.tipoEstab].conectado += f.mes.conectado || 0;
+    porTipo[f.tipoEstab].agendado  += f.mes.agendado  || 0;
+    porTipo[f.tipoEstab].ganho     += f.mes.ganho     || 0;
+  });
+
+  const tipos = Object.keys(porTipo).sort();
+  const elTable = document.getElementById('conv-table-tipo');
+  if (!elTable) return;
+
+  if (tipos.length === 0) {
+    elTable.innerHTML = '<div style="color:var(--muted);text-align:center;padding:18px;font-size:12px;">Sem dados.</div>';
+    return;
+  }
+
+  const palettTipos = ['#00FF41', '#38bdf8', '#FFC233', '#a78bfa', '#fb7185', '#e879f9'];
+  const corDoTipo = function(tipo, idx) {
+    if (tipo === 'Não informado') return '#6E8A78';
+    return palettTipos[idx % palettTipos.length];
+  };
+
+  const fmtConv = function(num, den) {
+    if (!den) return '<span style="color:var(--muted);">—</span>';
+    return (num / den * 100).toFixed(1) + '%';
+  };
+
+  // Cabeçalho compartilhado para th e td
+  const thStyle = 'padding:8px 6px;border-bottom:1px solid var(--hairline);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:700;';
+  const tdStyle = 'padding:8px 6px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;';
+  const tdLAStyle = tdStyle + 'color:var(--accent);background:rgba(0,255,65,0.06);';
+
+  const rows = tipos.map(function(tipo, idx) {
+    const d = porTipo[tipo];
+    return `
+      <tr>
+        <td style="padding:8px 6px;border-bottom:1px solid var(--border);">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:${corDoTipo(tipo, idx)};margin-right:7px;vertical-align:middle;"></span>
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text);">${tipo}</span>
+        </td>
+        <td style="${tdStyle}">${fmtConv(d.conectado, d.lav)}</td>
+        <td style="${tdStyle}">${fmtConv(d.agendado, d.conectado)}</td>
+        <td style="${tdStyle}">${fmtConv(d.ganho, d.agendado)}</td>
+        <td style="${tdLAStyle}">${fmtConv(d.agendado, d.lav)}</td>
+      </tr>`;
+  }).join('');
+
+  // Linha Total agregando todos os tipos
+  const total = { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+  tipos.forEach(function(tipo) {
+    total.lav       += porTipo[tipo].lav;
+    total.conectado += porTipo[tipo].conectado;
+    total.agendado  += porTipo[tipo].agendado;
+    total.ganho     += porTipo[tipo].ganho;
+  });
+
+  const tfootStyle = 'padding:9px 6px;font-family:var(--mono);font-size:12px;font-weight:700;text-align:right;color:var(--accent);font-variant-numeric:tabular-nums;border-top:1px solid var(--hairline);';
+
+  elTable.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="${thStyle}text-align:left;">Tipo</th>
+          <th style="${thStyle}text-align:right;" title="LAV → Conectado">L→C</th>
+          <th style="${thStyle}text-align:right;" title="Conectado → Agendado">C→A</th>
+          <th style="${thStyle}text-align:right;" title="Agendado → Ganho">A→G</th>
+          <th style="${thStyle}text-align:right;color:var(--accent);" title="LAV → Agendado (handoff PV)">L→A ★</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr style="background:var(--surface2);">
+          <td style="padding:9px 6px;font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em;border-top:1px solid var(--hairline);">Total</td>
+          <td style="${tfootStyle}">${fmtConv(total.conectado, total.lav)}</td>
+          <td style="${tfootStyle}">${fmtConv(total.agendado, total.conectado)}</td>
+          <td style="${tfootStyle}">${fmtConv(total.ganho, total.agendado)}</td>
+          <td style="${tfootStyle}background:rgba(0,255,65,0.1);">${fmtConv(total.agendado, total.lav)}</td>
+        </tr>
+      </tfoot>
+    </table>`;
+}
+
+// Renderiza um card de funil (1 vendedor ou Total) com 2 blocos: Visão Mês + Visão Safra.
+function renderFunilCard_(nome, mes, safra, accentColor) {
+  mes   = mes   || { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+  safra = safra || { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+
+  const isTotal = (nome === 'Total');
+
+  // Conversões (só pra exibição entre etapas)
+  const conv = function(num, den) {
+    if (!den || den === 0) return null;
+    return (num / den * 100).toFixed(1) + '%';
+  };
+
+  // Conversão geral LAV → Agendado
+  const overallConv = function(d) {
+    if (!d.lav || d.lav === 0) return null;
+    return (d.agendado / d.lav * 100);
+  };
+
+  // Renderiza um bloco (Mês ou Safra) com SVG funnel + rail de valores.
+  // SVG: trapézios encadeados verticalmente, largura ∝ valor de cada etapa.
+  const renderBloco = function(titulo, dados, isMonth) {
+    const steps = [
+      { key: 'lav',       name: 'LAV',       v: dados.lav       || 0 },
+      { key: 'conectado', name: 'Conectado', v: dados.conectado || 0 },
+      { key: 'agendado',  name: 'Agendado',  v: dados.agendado  || 0 },
+      { key: 'ganho',     name: 'Ganho',     v: dados.ganho     || 0 }
+    ];
+    const max = Math.max(steps[0].v, 1);
+
+    // Geometria do funil
+    const W = 220;          // viewBox width
+    const H = 168;          // viewBox height
+    const segH = (H - 12) / 4;
+    const minPctW = 0.10;   // largura mínima 10% pra step com valor 0/1 ainda aparecer
+
+    // Para cada etapa, calcular largura como % do max
+    const widths = steps.map(function(s) {
+      const p = s.v / max;
+      return Math.max(minPctW, p);
+    });
+
+    // Construir trapézios SVG: cada um vai de width[i] no topo a width[i+1] no fundo.
+    // Para o último (Ganho), o "fundo" usa a mesma largura que o topo (não fecha em ponta).
+    // Acumulamos também as posições verticais p/ posicionar o overlay HTML dos números.
+    const labelData = [];
+    const segments = steps.map(function(s, i) {
+      const wTop = widths[i];
+      const wBot = (i < steps.length - 1) ? widths[i + 1] : widths[i] * 0.85;
+      const xTopL = (W - wTop * W) / 2;
+      const xTopR = xTopL + wTop * W;
+      const xBotL = (W - wBot * W) / 2;
+      const xBotR = xBotL + wBot * W;
+      const yTop = 6 + i * segH;
+      const yBot = yTop + segH - 4;
+
+      // Opacidade decrescente para sentido visual de afunilamento
+      const opacity = isMonth
+        ? (1.0 - i * 0.18)
+        : (0.55 - i * 0.10);
+
+      const path = 'M ' + xTopL + ' ' + yTop +
+                   ' L ' + xTopR + ' ' + yTop +
+                   ' L ' + xBotR + ' ' + yBot +
+                   ' L ' + xBotL + ' ' + yBot + ' Z';
+
+      // Linha de conversão entre segmentos (tracejada)
+      const convLine = (i < steps.length - 1)
+        ? '<line x1="0" x2="' + W + '" y1="' + (yBot + 2) + '" y2="' + (yBot + 2) +
+          '" stroke="rgba(0,255,65,0.15)" stroke-dasharray="3 4" stroke-width="1"/>'
+        : '';
+
+      // Centro vertical do segmento como % da altura do viewBox.
+      // Usado pelo overlay HTML, que NÃO escala com o SVG (texto sempre legível).
+      labelData.push({
+        topPct: ((yTop + yBot) / 2 / H * 100),
+        value: exibirNumero(s.v),
+        isLight: opacity < 0.55
+      });
+
+      return convLine +
+        '<path class="seg-shape" d="' + path + '" fill="' + accentColor + '" fill-opacity="' + opacity.toFixed(2) +
+        '" stroke="' + accentColor + '" stroke-opacity="0.4" stroke-width="1"/>';
+    }).join('');
+
+    // Overlay HTML com os números — fica por cima do SVG mas em coordenadas CSS,
+    // então não distorce mesmo quando o card é wide (ex: card Total).
+    const labelsHtml = labelData.map(function(l) {
+      return '<div class="funil-svg-label' + (l.isLight ? ' is-light' : '') +
+             '" style="top:' + l.topPct.toFixed(2) + '%">' + l.value + '</div>';
+    }).join('');
+
+    // Conversões entre etapas (LAV→Conectado, Conectado→Agendado, Agendado→Ganho)
+    const convPairs = [
+      conv(dados.conectado, dados.lav),
+      conv(dados.agendado, dados.conectado),
+      conv(dados.ganho,    dados.agendado)
+    ];
+
+    const rail = steps.map(function(s, i) {
+      const cv = (i > 0) ? convPairs[i - 1] : null;
+      const convBadge = cv
+        ? '<span class="funil-step-conv">↳ ' + cv + '</span>'
+        : '';
+      return '<div class="funil-step-row">' +
+        '<span class="funil-step-name">' +
+          '<span class="dot" style="background:' + accentColor + ';opacity:' + (isMonth ? (1 - i * 0.18) : (0.55 - i * 0.10)).toFixed(2) + ';"></span>' +
+          '<strong>' + s.name + '</strong>' + convBadge +
+        '</span>' +
+        '<span class="funil-step-value">' + exibirNumero(s.v) + '</span>' +
+      '</div>';
+    }).join('');
+
+    return `
+      <div class="funil-bloco">
+        <div class="funil-bloco-title">
+          <span>${titulo}</span>
+          <span class="corner-tick"></span>
+        </div>
+        <div class="funil-svg-wrap">
+          <svg class="funil-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+            ${segments}
+          </svg>
+          <div class="funil-svg-labels">${labelsHtml}</div>
+        </div>
+        <div class="funil-rail">${rail}</div>
+      </div>`;
+  };
+
+  // Footer: conversão geral + delta entre Mês e Safra
+  const ovMes   = overallConv(mes);
+  const ovSafra = overallConv(safra);
+  const fmtConv = function(v) { return v == null ? '—' : v.toFixed(1) + '%'; };
+
+  let deltaHtml = '<span class="delta-flat">—</span>';
+  if (ovMes != null && ovSafra != null) {
+    const d = ovMes - ovSafra;
+    if (Math.abs(d) < 0.1) {
+      deltaHtml = '<span class="delta-flat">≈ safra</span>';
+    } else if (d > 0) {
+      deltaHtml = '<span class="delta-up">▲ ' + d.toFixed(1) + 'pp vs safra</span>';
+    } else {
+      deltaHtml = '<span class="delta-down">▼ ' + Math.abs(d).toFixed(1) + 'pp vs safra</span>';
+    }
+  }
+
+  return `
+    <div class="funil-card${isTotal ? ' is-total' : ''}">
+      <div class="funil-card-header">
+        <div class="avatar" style="background:${accentColor}22;color:${accentColor};border:1px solid ${accentColor}44;">${initials(nome)}</div>
+        <div class="funil-card-title">${nome}</div>
+        ${isTotal ? '<span class="funil-card-tag">Agregado</span>' : ''}
+      </div>
+      <div class="funil-compare">
+        ${renderBloco('Visão Mês', mes, true)}
+        ${renderBloco('Visão Safra', safra, false)}
+      </div>
+      <div class="funil-footer">
+        <div class="funil-stat">
+          <span class="funil-stat-label">Conv. LAV → Agendado · Mês</span>
+          <span class="funil-stat-value">${fmtConv(ovMes)}${deltaHtml ? ' ' + deltaHtml : ''}</span>
+        </div>
+        <div class="funil-stat">
+          <span class="funil-stat-label">Conv. LAV → Agendado · Safra</span>
+          <span class="funil-stat-value">${fmtConv(ovSafra)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+//  RENDER COHORT
+// ============================================================
+// =============================================================
+// RENDER ONLINE VS PRESENCIAL
+// =============================================================
+// Fonte: DASHBOARD_DATA.tipoReuniao.items (HubSpot Deal.tipo_de_reuniao,
+// Base Leads 2025-2026). Mesmo padrao de filtro periodo/vendedor
+// das demais abas (obterTipoReuniaoFiltrado, client-side).
+function chartTooltipEl_() {
+  var el = document.getElementById('chart-tooltip');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'chart-tooltip';
+    el.className = 'chart-tooltip';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function showChartTip_(evt, html) {
+  var el = chartTooltipEl_();
+  el.innerHTML = html;
+  el.style.display = 'block';
+  el.style.left = (evt.clientX + 14) + 'px';
+  el.style.top  = (evt.clientY + 14) + 'px';
+}
+function hideChartTip_() {
+  chartTooltipEl_().style.display = 'none';
+}
+
+function buildDonutSvg_(segments) {
+  var size = 220, r = 76, cx = size / 2, cy = size / 2, sw = 30;
+  var circumference = 2 * Math.PI * r;
+  var acc = 0;
+  var total = 0;
+  segments.forEach(function(s) { total += s.value; });
+  var arcs = segments.filter(function(s) { return s.value > 0; }).map(function(s) {
+    var dash = (s.pct / 100) * circumference;
+    var gap = circumference - dash;
+    var offset = -acc;
+    acc += dash;
+    var pctFmt = s.pct.toFixed(1).replace('.', ',');
+    var tip = s.label + ' \u2014 ' + pctFmt + '%';
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + s.color + '" ' +
+      'stroke-width="' + sw + '" stroke-dasharray="' + dash + ' ' + gap + '" stroke-dashoffset="' + offset + '" ' +
+      'class="donut-seg" onmousemove="showChartTip_(event, this.getAttribute(\'data-tip\'))" ' +
+      'onmouseleave="hideChartTip_()" data-tip="' + tip.replace(/"/g, '&quot;') + '"></circle>';
+  }).join('');
+  return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size + '" style="transform:rotate(-90deg)">' +
+    arcs +
+    '<text x="' + cx + '" y="' + cy + '" transform="rotate(90 ' + cx + ' ' + cy + ')" text-anchor="middle" ' +
+    'style="font-size:22px;font-weight:700;fill:var(--muted);">' + total + '</text>' +
+    '</svg>';
+}
+
+  function buildPieSvg_(segments) {
+    var size = 170, cx = size / 2, cy = size / 2, r = 80;
+    var total = 0;
+    segments.forEach(function(s) { total += s.value; });
+    var angle = 0;
+    var paths = segments.filter(function(s) { return s.value > 0; }).map(function(s) {
+      var frac = s.value / (total || 1);
+      var sweep = frac * 360;
+      var a1 = (angle - 90) * Math.PI / 180;
+      var a2 = (angle + sweep - 90) * Math.PI / 180;
+      var x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+      var x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+      var largeArc = sweep > 180 ? 1 : 0;
+      var pctFmt = (frac * 100).toFixed(1).replace('.', ',');
+      var tip = (s.label + ' \u2014 ' + pctFmt + '% (' + s.value + ')').replace(/"/g, '&quot;');
+      angle += sweep;
+      return `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z" fill="${s.color}" stroke="var(--bg)" stroke-width="1" class="donut-seg" onmousemove="showChartTip_(event,this.getAttribute('data-tip'))" onmouseleave="hideChartTip_()" data-tip="${tip}"></path>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${paths}</svg>`;
+  }
+
+function renderBreakdownList_(counts, colorFn) {
+  var keys = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
+  var max = 1;
+  keys.forEach(function(k) { if (counts[k] > max) max = counts[k]; });
+  return keys.map(function(k, idx) {
+    return '<div class="breakdown-row">' +
+      '<div class="breakdown-row-head"><span class="name">' + k + '</span><span class="count">' + counts[k] + '</span></div>' +
+      '<div class="breakdown-bar-bg"><div class="breakdown-bar-fill" style="width:' + (counts[k] / max * 100) + '%;background:' + colorFn(k, idx) + ';"></div></div>' +
+    '</div>';
+  }).join('');
+}
+
+var BREAKDOWN_PALETTE_ = ['#4f80ff','#22c97a','#f5a623','#a06cf5','#f5486c','#3ecbe0','#e0c93e','#8a9ba8','#ff8fb3','#5ce6a8','#c9862f','#7ea6ff','#e05fe0','#4fd1c5','#d1cf5c','#9e9e9e','#ff7043','#26a69a','#ab47bc','#8d6e63'];
+
+function renderTipoReuniao() {
+  const items = obterTipoReuniaoFiltrado();
+  const sv = document.getElementById('filter-seller').value;
+
+  if (items.length === 0) {
+    document.getElementById('tab-content').innerHTML = `
+      <div class="chart-card"><div class="chart-card-title">
+        Sem reunioes com tipo informado para o periodo selecionado.
+      </div></div>`;
+    return;
+  }
+
+  const TIPO_LABEL = { online: 'Online', presencial: 'Presencial', agora: 'Agora', outro: 'Outro' };
+  const TIPO_COLOR = { online: '#4f80ff', presencial: '#22c97a', agora: '#f5a623', outro: '#6E8A78' };
+  const TIPOS_KPI = ['online', 'presencial', 'agora'];
+
+  const totalPorTipo = { online: 0, presencial: 0, agora: 0, outro: 0 };
+  items.forEach(function(i) { totalPorTipo[i.tipo] = (totalPorTipo[i.tipo] || 0) + 1; });
+  const totalGeral = items.length;
+
+  const metricsHtml = TIPOS_KPI.map(function(k) {
+    const n = totalPorTipo[k] || 0;
+    const pct = totalGeral ? (n / totalGeral * 100) : 0;
+    return `
+      <div class="metric">
+        <div class="metric-label">${TIPO_LABEL[k]}</div>
+        <div class="metric-value" style="color:${TIPO_COLOR[k]}">${n}</div>
+        <div class="metric-sub">${pct.toFixed(1)}% do total</div>
+      </div>`;
+  }).join('');
+
+  const donutSegments = TIPOS_KPI.concat(totalPorTipo.outro > 0 ? ['outro'] : []).map(function(k) {
+    const n = totalPorTipo[k] || 0;
+    return { key: k, label: TIPO_LABEL[k], color: TIPO_COLOR[k], value: n, pct: totalGeral ? (n / totalGeral * 100) : 0 };
+  });
+  const donutSvg = buildDonutSvg_(donutSegments);
+  const donutLegendHtml = donutSegments.filter(function(s) { return s.value > 0; }).map(function(s) {
+    const pctFmt = s.pct.toFixed(1).replace('.', ',');
+    return `<div class="donut-legend-item"><span class="dot" style="background:${s.color}"></span>${s.label}<span class="pct">${pctFmt}%</span></div>`;
+  }).join('');
+
+  const porVendedor = {};
+  items.forEach(function(i) {
+    porVendedor[i.vendedor] = porVendedor[i.vendedor] || { online: 0, presencial: 0, agora: 0, outro: 0, total: 0 };
+    porVendedor[i.vendedor][i.tipo] = (porVendedor[i.vendedor][i.tipo] || 0) + 1;
+    porVendedor[i.vendedor].total++;
+  });
+  const vendedoresMostrar = (sv === 'all')
+    ? Object.keys(porVendedor).sort(function(a, b) { return porVendedor[b].total - porVendedor[a].total; })
+    : Object.keys(porVendedor).filter(function(v) { return v === sv; });
+
+  const barrasHtml = vendedoresMostrar.map(function(v) {
+    const d = porVendedor[v];
+    const segs = TIPOS_KPI.map(function(k) {
+      const w = d.total ? (d[k] / d.total * 100) : 0;
+      return w > 0 ? `<div style="width:${w}%;background:${TIPO_COLOR[k]};height:100%;display:inline-block;" title="${TIPO_LABEL[k]}: ${d[k]}"></div>` : '';
+    }).join('');
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+          <span style="font-weight:600;">${nomeCurto(v)}</span>
+          <span style="color:var(--muted);">${d.total} reunioes</span>
+        </div>
+        <div class="progress-bar-bg" style="height:14px;display:flex;overflow:hidden;">${segs}</div>
+      </div>`;
+  }).join('');
+
+  var porExecutivoRaw = {};
+  items.forEach(function(i) {
+    var k = i.executivo || 'Sem executivo';
+    porExecutivoRaw[k] = (porExecutivoRaw[k] || 0) + 1;
+  });
+  var execKeysAll = Object.keys(porExecutivoRaw).sort(function(a, b) { return porExecutivoRaw[b] - porExecutivoRaw[a]; });
+  var execSegments = execKeysAll.map(function(k, idx) {
+    return { key: k, label: k, color: BREAKDOWN_PALETTE_[idx % BREAKDOWN_PALETTE_.length], value: porExecutivoRaw[k] };
+  });
+  var execTotalGeral = execSegments.reduce(function(s, x) { return s + x.value; }, 0);
+  var execPieSvg = buildPieSvg_(execSegments);
+  var execLegendHtml = execSegments.map(function(s) {
+    var pctFmt = (execTotalGeral ? (s.value / execTotalGeral * 100) : 0).toFixed(1).replace('.', ',');
+    return `<div class="donut-legend-item"><span class="dot" style="background:${s.color}"></span>${s.label}<span class="pct">${pctFmt}%</span></div>`;
+  }).join('');
+
+  var porRotaRaw = {};
+  items.forEach(function(i) {
+    var k = i.rota || 'Sem rota';
+    porRotaRaw[k] = (porRotaRaw[k] || 0) + 1;
+  });
+  var rotaKeysAll = Object.keys(porRotaRaw).sort(function(a, b) { return porRotaRaw[b] - porRotaRaw[a]; });
+  var rotaSegments = rotaKeysAll.map(function(k, idx) {
+    return { key: k, label: k, color: BREAKDOWN_PALETTE_[idx % BREAKDOWN_PALETTE_.length], value: porRotaRaw[k] };
+  });
+  var rotaTotalGeral = rotaSegments.reduce(function(s, x) { return s + x.value; }, 0);
+  var rotaPieSvg = buildPieSvg_(rotaSegments);
+  var rotaLegendHtml = rotaSegments.map(function(s) {
+    var pctFmt = (rotaTotalGeral ? (s.value / rotaTotalGeral * 100) : 0).toFixed(1).replace('.', ',');
+    return `<div class="donut-legend-item"><span class="dot" style="background:${s.color}"></span>${s.label}<span class="pct">${pctFmt}%</span></div>`;
+  }).join('');
+
+  document.getElementById('tab-content').innerHTML = `
+    <div class="chart-card" style="margin-bottom:18px;">
+      <div class="chart-card-title">Reunioes por tipo -- Online vs Presencial vs Agora</div>
+      <div class="chart-card-sub">Fonte: HubSpot Lead (tipo_de_reuniao) \u00b7 Base Leads 2025-2026 \u00b7 Total no periodo: ${totalGeral}</div>
+      <div class="donut-wrap">
+        ${donutSvg}
+        <div class="donut-legend">${donutLegendHtml}</div>
+      </div>
+      <div class="metrics" style="margin-top:18px;">${metricsHtml}</div>
+    </div>
+    <div class="chart-card" style="margin-bottom:18px;">
+      <div class="chart-card-title">Composicao por vendedor</div>
+      ${barrasHtml}
+    </div>
+    <div class="grid-2col">
+      <div class="chart-card">
+        <div class="chart-card-title">Reunioes por Executivo de Vendas</div>
+        <div class="chart-card-sub">Dono do negocio (Deal) associado ao lead que originou a reuniao</div>
+        <div class="donut-wrap">
+          ${execPieSvg}
+          <div class="donut-legend">${execLegendHtml}</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Reunioes por Rota</div>
+        <div class="chart-card-sub">rota_do_lead \u00b7 Base Leads \u00b7 Top 8 + Outras</div>
+        <div class="donut-wrap">
+          ${rotaPieSvg}
+          <div class="donut-legend">${rotaLegendHtml}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderCohort() {
+  const c = DASHBOARD_DATA.cohort;
+
+  if (!c || !c.headers || c.headers.length === 0) {
+    document.getElementById('tab-content').innerHTML = `
+      <div class="chart-card"><div class="chart-card-title">
+        Sem dados de cohort no período (${c && c.dateRange ? c.dateRange.start + ' a ' + c.dateRange.end : '—'}).
+      </div></div>`;
+    return;
+  }
+
+  // Pré-processa headers em ISO pra cada coluna (usado nos data-attributes)
+  // Formato esperado: "01/05/2026 - 31/05/2026"
+  const parseHeaderRange = function(headerStr) {
+    if (!headerStr) return { startISO: '', endISO: '' };
+    const partes = String(headerStr).split(' - ').map(function(s) { return s.trim(); });
+    if (partes.length !== 2) return { startISO: '', endISO: '' };
+    const toISO = function(br) {
+      const m = br.match(/(\d+)\/(\d+)\/(\d+)/);
+      if (!m) return '';
+      return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+    };
+    return { startISO: toISO(partes[0]), endISO: toISO(partes[1]) };
+  };
+  const headerRanges = c.headers.map(function(h) { return parseHeaderRange(h.data); });
+
+  const buildTable = function(titulo, sub, rows, totalRow, formatter, isAbsoluto) {
+    const headerCells = c.headers.map(function(h) {
+      return `<th><div style="font-size:10px;color:var(--muted)">${h.data}</div><div>${h.numero}</div></th>`;
+    }).join('');
+
+    // Cada célula numérica recebe data-attrs pra overlay:
+    // data-vendedor / data-start (criação) / data-end (criação)
+    // Só atacha hover na tabela de valores ABSOLUTOS (porcentagem não faz sentido drilldown)
+    const cellAttrs = function(vendedor, range) {
+      if (!isAbsoluto) return '';
+      const v = vendedor ? ` data-vendedor="${vendedor}"` : '';
+      const s = range && range.startISO ? ` data-start="${range.startISO}"` : '';
+      const e = range && range.endISO   ? ` data-end="${range.endISO}"`     : '';
+      return ' class="cohort-cell-hover"' + v + s + e;
+    };
+
+    const bodyRows = rows.map(function(r) {
+      const cells = r.valores.map(function(v, ci) {
+        return `<td${cellAttrs(r.vendedor, headerRanges[ci])}>${formatter(v)}</td>`;
+      }).join('');
+      // Total da linha: vendedor sem filtro de criação (mostra todos leads do vendedor)
+      const totalCell = `<td${cellAttrs(r.vendedor, null)}><strong>${formatter(r.total)}</strong></td>`;
+      return `<tr><td><strong>${r.vendedor || '—'}</strong></td>${cells}${totalCell}</tr>`;
+    }).join('');
+
+    const totalCells = totalRow.valores.map(function(v, ci) {
+      return `<td${cellAttrs(null, headerRanges[ci])}>${formatter(v)}</td>`;
+    }).join('');
+    const grandTotalCell = `<td${cellAttrs(null, null)}>${formatter(totalRow.total)}</td>`;
+
+    return `
+      <div class="chart-card" style="margin-bottom:16px;">
+        <div class="chart-card-title">${titulo}</div>
+        <div class="chart-card-sub">${sub}</div>
+        <div style="overflow-x:auto;">
+          <table class="cohort-table">
+            <thead><tr><th>Pré-vendedor</th>${headerCells}<th>Total</th></tr></thead>
+            <tbody>${bodyRows}</tbody>
+            <tfoot><tr><td>Total</td>${totalCells}${grandTotalCell}</tr></tfoot>
+          </table>
+        </div>
+      </div>`;
+  };
+
+  const fmtAbs  = function(v) { return v == null ? '—' : Math.ceil(v); };
+  const fmtPerc = function(v) { return v == null ? '—' : (v * 100).toFixed(1) + '%'; };
+
+  document.getElementById('tab-content').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">
+      Fonte: <strong style="color:var(--text)">Passes Do Mês</strong> (cruzamento de data reunião × data criação) · <span style="color:var(--accent);">passe o mouse sobre os números (tabela absoluta) para ver os leads</span>
+    </div>
+    ${buildTable(
+      'Cohort — Valores absolutos',
+      `Período: ${c.dateRange.start} a ${c.dateRange.end} · Intervalo: ${c.intervaloDias} dias`,
+      c.absoluto.rows, c.absoluto.totalRow, fmtAbs, true
+    )}
+    ${buildTable(
+      'Cohort — Distribuição percentual (linha = 100%)',
+      'Cada linha mostra como os passes do vendedor se distribuem entre semanas de criação',
+      c.percentual.rows, c.percentual.totalRow, fmtPerc, false
+    )}
+  `;
+
+  // Liga handlers de hover nas células marcadas
+  ativarOverlayCohort_();
+}
+
+// ============================================================
+//  COHORT — overlay de leads ao hover
+// ============================================================
+let _overlayHideTimer = null;
+
+// Inicializa hover handlers em cada cell .cohort-cell-hover.
+// Também garante que o overlay próprio tenha enter/leave registrados (uma vez só).
+function ativarOverlayCohort_() {
+  const overlay = document.getElementById('cohort-overlay');
+  if (!overlay) return;
+
+  // Listeners do próprio overlay são registrados 1× via flag dataset
+  if (!overlay.dataset.ready) {
+    overlay.addEventListener('mouseenter', function() {
+      if (_overlayHideTimer) { clearTimeout(_overlayHideTimer); _overlayHideTimer = null; }
+    });
+    overlay.addEventListener('mouseleave', function() {
+      esconderOverlayCohort_();
+    });
+    overlay.dataset.ready = '1';
+  }
+
+  document.querySelectorAll('.cohort-table td.cohort-cell-hover').forEach(function(td) {
+    td.addEventListener('mouseenter', function(e) { mostrarOverlayCohort_(e.currentTarget); });
+    td.addEventListener('mouseleave', function() {
+      _overlayHideTimer = setTimeout(esconderOverlayCohort_, 250);
+    });
+  });
+}
+
+function esconderOverlayCohort_() {
+  const overlay = document.getElementById('cohort-overlay');
+  if (overlay) overlay.style.display = 'none';
+  if (_overlayHideTimer) { clearTimeout(_overlayHideTimer); _overlayHideTimer = null; }
+}
+
+function mostrarOverlayCohort_(cellEl) {
+  if (_overlayHideTimer) { clearTimeout(_overlayHideTimer); _overlayHideTimer = null; }
+
+  const overlay = document.getElementById('cohort-overlay');
+  if (!overlay) return;
+
+  const vendedor = cellEl.dataset.vendedor || null;
+  const start    = cellEl.dataset.start || null;
+  const end      = cellEl.dataset.end || null;
+
+  const cohortLeads = (DASHBOARD_DATA.cohortLeads && DASHBOARD_DATA.cohortLeads.leads) || [];
+  const leads = cohortLeads.filter(function(l) {
+    if (vendedor && l.vendedor !== vendedor) return false;
+    if (start && (!l.dataCriacao || l.dataCriacao < start)) return false;
+    if (end   && (!l.dataCriacao || l.dataCriacao > end))   return false;
+    return true;
+  });
+
+  // Constrói cabeçalho descritivo
+  const labelEscopo = vendedor ? `<strong>${vendedor}</strong>` : '<strong>Todos pré-vendedores</strong>';
+  const labelCriacao = (start && end)
+    ? `Criação ${fmtDataBR_(start)} — ${fmtDataBR_(end)}`
+    : `Criação: todas (linha Total)`;
+
+  // Construção da tabela de leads
+  // HubSpot Lead (objectTypeId 0-136) usa URL pattern especial: /lead/<recordId>
+  // (não é /record/0-136/ como custom objects "puros")
+  const hsCfg = DASHBOARD_DATA.hubspot || {};
+  const linkBase = hsCfg.portalId
+    ? `https://app.hubspot.com/contacts/${hsCfg.portalId}/lead/`
+    : null;
+
+  const linkCell = function(recId) {
+    if (!recId) return '<span style="color:var(--muted);">—</span>';
+    if (!linkBase) return `<span style="font-family:var(--mono);">${recId}</span>`;
+    return `<a class="ovl-link" href="${linkBase}${encodeURIComponent(recId)}" target="_blank" rel="noopener">${recId} ↗</a>`;
+  };
+
+  const bodyHtml = leads.length === 0
+    ? '<div class="ovl-empty">Sem leads para essa combinação.</div>'
+    : `<table>
+        <thead><tr>
+          <th>Record</th><th>Reunião</th><th>Criação</th><th>Origem</th><th>Perfil</th><th>Tipo</th>
+        </tr></thead>
+        <tbody>
+          ${leads.map(function(l) {
+            return `<tr>
+              <td>${linkCell(l.recordId)}</td>
+              <td style="font-family:var(--mono);">${fmtDataBR_(l.dataReuniao)}</td>
+              <td style="font-family:var(--mono);">${fmtDataBR_(l.dataCriacao)}</td>
+              <td>${l.origemMacro}</td>
+              <td>${l.perfilAgrupado}</td>
+              <td>${l.tipoEstab}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+
+  overlay.innerHTML = `
+    <div class="ovl-header">
+      <div class="ovl-title">${labelEscopo} · ${leads.length} ${leads.length === 1 ? 'lead' : 'leads'}</div>
+      <div class="ovl-sub">${labelCriacao}</div>
+    </div>
+    <div class="ovl-body">${bodyHtml}</div>`;
+
+  posicionarOverlayCohort_(cellEl);
+}
+
+// Posiciona o overlay próximo à célula. Tenta ABAIXO primeiro, sobe se não couber.
+// Centraliza horizontalmente mas clampa pra ficar dentro do viewport.
+function posicionarOverlayCohort_(cellEl) {
+  const overlay = document.getElementById('cohort-overlay');
+  if (!overlay) return;
+
+  overlay.style.visibility = 'hidden';
+  overlay.style.display = 'block';
+  overlay.style.top = '0px';
+  overlay.style.left = '0px';
+
+  const rect = cellEl.getBoundingClientRect();
+  const oh = overlay.offsetHeight;
+  const ow = overlay.offsetWidth;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const margin = 8;
+
+  let top = rect.bottom + margin;
+  if (top + oh > vh - margin) top = Math.max(margin, rect.top - oh - margin);
+
+  let left = rect.left + (rect.width / 2) - (ow / 2);
+  if (left < margin) left = margin;
+  if (left + ow > vw - margin) left = vw - ow - margin;
+
+  overlay.style.top  = top  + 'px';
+  overlay.style.left = left + 'px';
+  overlay.style.visibility = 'visible';
+}
+
+function fmtDataBR_(iso) {
+  if (!iso) return '—';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  return m[3] + '/' + m[2] + '/' + m[1];
+}
+
+// ============================================================
+//  OVERLAY DE DEALS — ativado por click no chart Agendamentos por vendedor
+// ============================================================
+// Fonte: DASHBOARD_DATA.dealsOverlay.deals (Neo Crescimento - PV no mês corrente).
+// URL HubSpot Deal: https://app.hubspot.com/contacts/<portalId>/record/0-3/<dealId>
+// Filtra por (vendedor, status). Fecha clicando fora ou no botão Fechar.
+
+function esconderOverlayDeals_() {
+  const ov = document.getElementById('deals-overlay');
+  if (ov) ov.style.display = 'none';
+}
+
+function mostrarOverlayDeals_(vendedor, status, evt) {
+  const overlay = document.getElementById('deals-overlay');
+  if (!overlay) return;
+
+  const dealsAll = (DASHBOARD_DATA.dealsOverlay && DASHBOARD_DATA.dealsOverlay.deals) || [];
+  const deals = dealsAll.filter(function(d) {
+    return d.vendedor === vendedor && d.status === status;
+  });
+
+  // Label do status
+  const statusLabel = status === 'validado' ? 'Validados'
+                    : status === 'aValidar' ? 'A validar'
+                    : 'Não válidos';
+  const statusClass = 'status-' + status;
+
+  // URL base HubSpot Deal (objeto 0-3)
+  const hsCfg = DASHBOARD_DATA.hubspot || {};
+  const linkBase = hsCfg.portalId
+    ? `https://app.hubspot.com/contacts/${hsCfg.portalId}/record/0-3/`
+    : null;
+
+  const linkCell = function(id) {
+    if (!id) return '<span style="color:var(--muted);">—</span>';
+    if (!linkBase) return `<span style="font-family:var(--mono);">${id}</span>`;
+    return `<a class="ovl-link" href="${linkBase}${encodeURIComponent(id)}" target="_blank" rel="noopener">${id} ↗</a>`;
+  };
+
+  const dateRange = (DASHBOARD_DATA.dealsOverlay && DASHBOARD_DATA.dealsOverlay.dateRange) || {};
+  const sub = `${fmtDataBR_(dateRange.start)} — ${fmtDataBR_(dateRange.end)} · mês corrente`;
+
+  const bodyHtml = deals.length === 0
+    ? '<div class="ovl-empty">Sem deals nessa combinação.</div>'
+    : `<table>
+        <thead><tr>
+          <th>Deal ID</th><th>Data Reunião</th><th>Status</th>
+        </tr></thead>
+        <tbody>
+          ${deals.map(function(d) {
+            return `<tr>
+              <td>${linkCell(d.dealId)}</td>
+              <td style="font-family:var(--mono);">${fmtDataBR_(d.data)}</td>
+              <td class="${statusClass}" style="font-weight:700;">${statusLabel}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+
+  overlay.innerHTML = `
+    <div class="ovl-header">
+      <div>
+        <div class="ovl-title"><strong>${vendedor}</strong> · ${deals.length} ${deals.length === 1 ? 'deal' : 'deals'} <span class="${statusClass}">${statusLabel}</span></div>
+        <div class="ovl-sub">${sub}</div>
+      </div>
+      <button class="ovl-close" onclick="esconderOverlayDeals_()">Fechar ✕</button>
+    </div>
+    <div class="ovl-body">${bodyHtml}</div>`;
+
+  posicionarOverlayDeals_(evt);
+}
+
+// Posiciona perto do mouse no momento do click, clampando ao viewport.
+function posicionarOverlayDeals_(evt) {
+  const overlay = document.getElementById('deals-overlay');
+  if (!overlay) return;
+  overlay.style.visibility = 'hidden';
+  overlay.style.display = 'block';
+  overlay.style.top = '0px';
+  overlay.style.left = '0px';
+
+  const ox = (evt && evt.native && typeof evt.native.clientX === 'number') ? evt.native.clientX : 200;
+  const oy = (evt && evt.native && typeof evt.native.clientY === 'number') ? evt.native.clientY : 200;
+
+  const oh = overlay.offsetHeight;
+  const ow = overlay.offsetWidth;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const margin = 12;
+
+  let top = oy + 16;
+  if (top + oh > vh - margin) top = Math.max(margin, oy - oh - 16);
+
+  let left = ox - ow / 2;
+  if (left < margin) left = margin;
+  if (left + ow > vw - margin) left = vw - ow - margin;
+
+  overlay.style.top = top + 'px';
+  overlay.style.left = left + 'px';
+  overlay.style.visibility = 'visible';
+}
+
+// ============================================================
+//  CHART OPTIONS HELPERS
+// ============================================================
+function chartOptionsBar_(extra) {
+  const opts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(0,255,65,0.06)' }, ticks: { color: '#6E8A78' } },
+      x: { grid: { display: false }, ticks: { color: '#6E8A78' } }
+    }
+  };
+  if (extra && extra.xAutoSkip === false) {
+    opts.scales.x.ticks.autoSkip = false;
+    opts.scales.x.ticks.maxRotation = 45;
+    opts.scales.x.ticks.font = { size: 10 };
+  }
+  return opts;
+}
+
+function chartOptionsLine_(extra) {
+  const opts = chartOptionsBar_();
+  opts.scales.x.ticks.autoSkip = true;
+  if (extra && extra.xMaxTicks) opts.scales.x.ticks.maxTicksLimit = extra.xMaxTicks;
+  opts.scales.x.ticks.font = { size: 10 };
+  return opts;
+}
+
+// ============================================================
+//  HELPERS DIVERSOS
+// ============================================================
+function uniqueDates_(items) {
+  const set = {};
+  (items || []).forEach(function(i) { set[i.date] = true; });
+  return Object.keys(set);
+}
+
+function somaCount_(acc, i) { return acc + (i.count || 0); }
+
+function showToast(type, msg) {
+  const t = document.getElementById('toast');
+  const d = document.getElementById('toast-dot');
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = '';
+  t.classList.add(type);
+  d.style.background = type === 'success' ? '#00FF41' : '#FF3333';
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 4500);
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg || 'Carregando...';
+  document.getElementById('loading-overlay').style.display = 'flex';
+}
+
+function hideLoading() {
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+</script>
+</body>
+</html>
