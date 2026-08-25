@@ -842,6 +842,19 @@
       <option value="all">Todos os pré-vendedores</option>
     </select>
 
+    <!-- Filtro de cidade — visível só na aba Online vs Presencial. Agrupa por UF
+         (estado) e não por nome de cidade: SP inclui ABC/Guarulhos, BH inclui Nova Lima. -->
+    <div id="filters-cidade" style="display:none; gap:10px; align-items:center;">
+      <span class="filter-label">Cidade:</span>
+      <select class="filter-select" id="filter-cidade" onchange="renderAll()">
+        <option value="">Todas as cidades</option>
+        <option value="SP">SP</option>
+        <option value="RJ">RJ</option>
+        <option value="BH">BH</option>
+        <option value="Outros">Outros</option>
+      </select>
+    </div>
+
     <!-- Filtros de dimensão — visíveis só nas abas Evolução e Funil vs Meta.
          Multi-select via tom-select (inicializado em popularSeletoresDimensao). -->
     <div id="filters-dimensao" style="display:none; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -1004,9 +1017,15 @@ function popularSeletoresDimensao(payload) {
 // Visível só em: evolucao, funil. (Esconde inclusive os widgets tom-select.)
 function atualizarVisibilidadeFiltrosDimensao() {
   const div = document.getElementById('filters-dimensao');
-  if (!div) return;
-  const visivel = (currentTab === 'evolucao' || currentTab === 'funil');
-  div.style.display = visivel ? 'flex' : 'none';
+  if (div) {
+    const visivel = (currentTab === 'evolucao' || currentTab === 'funil');
+    div.style.display = visivel ? 'flex' : 'none';
+  }
+  // Cidade: abas que realmente filtram por ela (Online vs Presencial usa items;
+  // Funil vs Meta usa fatiado). Fora dessas o seletor fica oculto — e como ele só
+  // é lido por essas duas, não há filtro "invisível" atuando nas outras abas.
+  const divCid = document.getElementById('filters-cidade');
+  if (divCid) divCid.style.display = (currentTab === 'tiporeuniao' || currentTab === 'funil') ? 'flex' : 'none';
 }
 
 function onDataError(err) {
@@ -1158,6 +1177,8 @@ function obterTipoReuniaoFiltrado() {
   const items = DASHBOARD_DATA.tipoReuniao.items || [];
   const p  = document.getElementById('filter-periodo').value;
   const sv = document.getElementById('filter-seller').value;
+  const cdEl = document.getElementById('filter-cidade');
+  const cd = cdEl ? cdEl.value : '';
 
   const today       = DASHBOARD_DATA.metaInfo.today;
   const startMonth  = DASHBOARD_DATA.metaInfo.startMonth;
@@ -1170,6 +1191,7 @@ function obterTipoReuniaoFiltrado() {
 
   return items.filter(function(i) {
     if (sv !== 'all' && i.vendedor !== sv) return false;
+    if (cd && i.cidade !== cd) return false;
     if (p === 'today')  return i.date === today;
     if (p === 'week')   return i.date >= weekStart && i.date <= today;
     if (p === 'custom') return i.date >= customStart && i.date <= customEnd;
@@ -1216,11 +1238,28 @@ function aplicarFiltrosDimensoes_(item, filtros) {
   return true;
 }
 
+// Filtro de cidade — aplicado SÓ no Funil vs Meta e na aba Online vs Presencial.
+// Deliberadamente fora de aplicarFiltrosDimensoes_: aquela função é compartilhada
+// com a Evolução, cujos itens (timeline) não carregam cidade — incluir lá zeraria
+// o gráfico de Evolução sem o filtro sequer estar visível na tela.
+function passaCidade_(item) {
+  const el = document.getElementById('filter-cidade');
+  const cd = el ? el.value : '';
+  if (!cd) return true;
+  return item.cidade === cd;
+}
+
 // True se algum filtro tem ao menos 1 valor selecionado.
 function temFiltrosDimensoesAtivos_() {
   const d = getFiltrosDimensoes_();
+  // Cidade entra aqui de propósito: recalcularAgregadosFunil_ tem um atalho que
+  // devolve o agregado pronto do backend quando NENHUM filtro está ativo — nesse
+  // caminho o fatiado (única fonte com cidade) nem é percorrido. Sem esta linha,
+  // escolher uma cidade não muda número nenhum no Funil.
+  const cid = document.getElementById('filter-cidade');
   return d.origemMacro.length > 0 || d.origemMicro.length > 0
-      || d.perfilAgrupado.length > 0 || d.tipoEstab.length > 0;
+      || d.perfilAgrupado.length > 0 || d.tipoEstab.length > 0
+      || !!(cid && cid.value);
 }
 
 // ============================================================
@@ -2551,19 +2590,28 @@ function recalcularAgregadosFunil_(fl, vendedoresMostrar) {
   const fatiado = fl.fatiado || [];
 
   // Inicializa zeros pra todos os vendedores + Total
-  const zero = function() { return { lav: 0, conectado: 0, agendado: 0, ganho: 0 }; };
+  const zero = function() { return { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 }; };
   const mes = { Total: zero() }, safra = { Total: zero() };
   vendedoresMostrar.forEach(function(v) { mes[v] = zero(); safra[v] = zero(); });
 
   fatiado.forEach(function(f) {
-    if (!aplicarFiltrosDimensoes_(f, dim)) return;
+    if (!aplicarFiltrosDimensoes_(f, dim) || !passaCidade_(f)) return;
     if (!mes[f.vendedor]) return; // vendedor fora da lista mostrada
-    ['lav','conectado','agendado','ganho'].forEach(function(et) {
+    ['lead','lav','conectado','agendado','ganho'].forEach(function(et) {
       mes[f.vendedor][et]   += f.mes[et]   || 0;
       safra[f.vendedor][et] += f.safra[et] || 0;
       mes.Total[et]   += f.mes[et]   || 0;
       safra.Total[et] += f.safra[et] || 0;
     });
+  });
+
+  // Leads sem owner válido (descartados em workflow, sem pré-vendedor atribuído) —
+  // não têm vendedor pra atribuir, mas contam no Total.lead pra não desaparecer do funil.
+  const fatiadoSemOwner = fl.fatiadoSemOwner || [];
+  fatiadoSemOwner.forEach(function(f) {
+    if (!aplicarFiltrosDimensoes_(f, dim) || !passaCidade_(f)) return;
+    mes.Total.lead   += f.mes.lead   || 0;
+    safra.Total.lead += f.safra.lead || 0;
   });
 
   return { mes: mes, safra: safra };
@@ -2575,7 +2623,7 @@ function renderStackTipoEstab_(fl, vendedor) {
   const dim = getFiltrosDimensoes_();
   const fatiado = (fl.fatiado || []).filter(function(f) {
     if (f.vendedor !== vendedor) return false;
-    return aplicarFiltrosDimensoes_(f, dim);
+    return aplicarFiltrosDimensoes_(f, dim) && passaCidade_(f);
   });
 
   // Coleta tipos únicos (sempre incluindo "Não informado" se aparecer)
@@ -2671,7 +2719,7 @@ function renderConvTableTipo_(fl, vendedor) {
   const dim = getFiltrosDimensoes_();
   const fatiado = (fl.fatiado || []).filter(function(f) {
     if (f.vendedor !== vendedor) return false;
-    return aplicarFiltrosDimensoes_(f, dim);
+    return aplicarFiltrosDimensoes_(f, dim) && passaCidade_(f);
   });
 
   // Agrega volumes Visão Mês por tipo
@@ -2761,8 +2809,8 @@ function renderConvTableTipo_(fl, vendedor) {
 
 // Renderiza um card de funil (1 vendedor ou Total) com 2 blocos: Visão Mês + Visão Safra.
 function renderFunilCard_(nome, mes, safra, accentColor) {
-  mes   = mes   || { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
-  safra = safra || { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+  mes   = mes   || { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+  safra = safra || { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 };
 
   const isTotal = (nome === 'Total');
 
@@ -2782,6 +2830,7 @@ function renderFunilCard_(nome, mes, safra, accentColor) {
   // SVG: trapézios encadeados verticalmente, largura ∝ valor de cada etapa.
   const renderBloco = function(titulo, dados, isMonth) {
     const steps = [
+      { key: 'lead',      name: 'Lead',      v: dados.lead      || 0 },
       { key: 'lav',       name: 'LAV',       v: dados.lav       || 0 },
       { key: 'conectado', name: 'Conectado', v: dados.conectado || 0 },
       { key: 'agendado',  name: 'Agendado',  v: dados.agendado  || 0 },
@@ -2792,7 +2841,7 @@ function renderFunilCard_(nome, mes, safra, accentColor) {
     // Geometria do funil
     const W = 220;          // viewBox width
     const H = 168;          // viewBox height
-    const segH = (H - 12) / 4;
+    const segH = (H - 12) / 5;
     const minPctW = 0.10;   // largura mínima 10% pra step com valor 0/1 ainda aparecer
 
     // Para cada etapa, calcular largura como % do max
@@ -2851,11 +2900,12 @@ function renderFunilCard_(nome, mes, safra, accentColor) {
              '" style="top:' + l.topPct.toFixed(2) + '%">' + l.value + '</div>';
     }).join('');
 
-    // Conversões entre etapas (LAV→Conectado, Conectado→Agendado, Agendado→Ganho)
+    // Conversões entre etapas (Lead→LAV, LAV→Conectado, Conectado→Agendado, Agendado→Ganho)
     const convPairs = [
+      conv(dados.lav,       dados.lead),
       conv(dados.conectado, dados.lav),
-      conv(dados.agendado, dados.conectado),
-      conv(dados.ganho,    dados.agendado)
+      conv(dados.agendado,  dados.conectado),
+      conv(dados.ganho,     dados.agendado)
     ];
 
     const rail = steps.map(function(s, i) {

@@ -10,7 +10,7 @@ Painel de gestão do time de Pré-Vendas Inbound, integrado direto com HubSpot v
 
 - `docs/` — handoff de continuidade (arquitetura, bugs corrigidos, convenções de edição/deploy).
 - `decisoes/` — registro vivo de decisões e achados por sessão.
-- `scripts/` — cópia mais recente do código-fonte publicado no Apps Script (`Cohort.gs`, `Code.gs`, `Utils.gs`, `Writer.gs`, `Reader.gs`, `Index.html`, `Sync.gs`, `leads.gs`, `SyncNeo.gs`). A fonte de verdade é sempre o projeto Apps Script; esta cópia é só espelho, capturada em 07/08/2026 direto da versão em produção.
+- `scripts/` — cópia mais recente do código-fonte publicado no Apps Script (`Cohort.gs`, `Code.gs`, `Utils.gs`, `Writer.gs`, `Reader.gs`, `Index.html`, `Sync.gs`, `leads.gs`, `SyncNeo.gs`). A fonte de verdade é sempre o projeto Apps Script; esta cópia é só espelho, sincronizada em 25/08/2026 com a **Versão 19** em produção.
 
 ## Irmão deste projeto
 

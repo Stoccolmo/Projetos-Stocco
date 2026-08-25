@@ -408,22 +408,29 @@ function lerMetasMensais_(ss) {
 //
 // Filtros aplicados (janela = funilStart..funilEnd dos filtros do dashboard):
 //   Visão Mês:
+//     Lead      → linha conta se col L (criação) ∈ janela
 //     LAV       → linha conta se col C ∈ janela
 //     Conectado → linha conta se col D ∈ janela
 //     Agendado  → linha conta se col E ∈ janela
 //     Ganho     → linha conta se col F ∈ janela
 //   Visão Safra (lead criado na janela e que atingiu cada etapa):
+//     Lead      → col L ∈ janela (todo lead criado na janela conta)
 //     LAV       → col L ∈ janela E col C != null/vazio
 //     Conectado → col L ∈ janela E col D != null/vazio
 //     Agendado  → col L ∈ janela E col E != null/vazio
 //     Ganho     → col L ∈ janela E col F != null/vazio
 //
+// "Lead" conta TODA linha (com ou sem owner válido) — inclui leads sem pré-vendedor
+// atribuído (descartados em workflow antes de chegar ao time). LAV/Conectado/Agendado/
+// Ganho só contam linhas com owner na lista de pré-vendedores ativos (aba "Compilado de
+// Passes"). Por isso o Total.lead >= soma dos vendedores — a diferença é o descarte.
+//
 // Retorna agregação por vendedor + linha "Total":
 //   {
 //     dateRange: { start, end },
 //     vendedores: ["Eduarda de Barros", ...],
-//     mes:   { "Eduarda de Barros": { lav, conectado, agendado, ganho }, ..., "Total": {...} },
-//     safra: { "Eduarda de Barros": { lav, conectado, agendado, ganho }, ..., "Total": {...} }
+//     mes:   { "Eduarda de Barros": { lead, lav, conectado, agendado, ganho }, ..., "Total": {...} },
+//     safra: { "Eduarda de Barros": { lead, lav, conectado, agendado, ganho }, ..., "Total": {...} }
 //   }
 function agregarFunilLeads_(ss) {
   const sheet = ss.getSheetByName(CONFIG.ABA_BASE_LEADS);
@@ -470,14 +477,20 @@ function agregarFunilLeads_(ss) {
   // Inicializa estruturas com 0 para todos os vendedores válidos
   const mes = {}, safra = {};
   vendedoresLista.forEach(function(v) {
-    mes[v]   = { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
-    safra[v] = { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+    mes[v]   = { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+    safra[v] = { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 };
   });
 
   // Fatiado: 1 entry por combinação única (vendedor, origemMacro, perfilAgrupado, tipoEstab)
   // Permite ao frontend re-agregar com filtros aplicados, sem mandar 30k linhas crus.
   // Chave de agg: vendedor|origemMacro|perfilAgrupado|tipoEstab
   const fatiadoAgg = {};
+
+  // "Lead" (topo de funil) sem owner válido — leads que caem em workflow e nunca chegam
+  // a um pré-vendedor (sem responsável ou responsável fora da lista ativa). Precisa de
+  // agregação própria (sem dimensão de vendedor) pra não ficar invisível no Total do funil.
+  // Chave de agg: origemMacro|origemMicro|perfilAgrupado|tipoEstab
+  const fatiadoSemOwnerAgg = {};
 
   const desconhecidos = {};
 
@@ -495,20 +508,19 @@ function agregarFunilLeads_(ss) {
     const colO = dados[i][12];  // Perfil Agrupado
     const colP = dados[i][13];  // Tipo de Estabelecimento
 
-    if (!colN) continue;
-
-    const vendedor = normalizarVendedor(colN);
-    if (!vendedoresValidos.has(vendedor)) {
-      desconhecidos[String(colN).trim()] = (desconhecidos[String(colN).trim()] || 0) + 1;
-      continue;
-    }
-
     const origemMacro    = normDim(colG);
     const origemMicro    = normDim(colH);
     const perfilAgrupado = normDim(colO);
     const tipoEstab      = normDim(colP);
 
+    // Cidade (col J = estado). Mesma regra de agrupamento do agregarTipoReuniao_:
+    // agrupa por UF pra que SP inclua ABC/Guarulhos e BH inclua Nova Lima.
+    const colJ = dados[i][7];   // Estado (UF)
+    const uf = String(colJ == null ? '' : colJ).trim().toUpperCase();
+    const cidade = (uf === 'SP') ? 'SP' : (uf === 'RJ') ? 'RJ' : (uf === 'MG') ? 'BH' : 'Outros';
+
     // Visão Mês: cada etapa filtra pela coluna de data DA ETAPA
+    const leadMes      = inRange(colL) ? 1 : 0;
     const lavMes       = inRange(colC) ? 1 : 0;
     const conectadoMes = inRange(colD) ? 1 : 0;
     const agendadoMes  = inRange(colE) ? 1 : 0;
@@ -516,62 +528,106 @@ function agregarFunilLeads_(ss) {
 
     // Visão Safra: lead CRIADO na janela (col L), conta a etapa se a coluna correspondente é "conhecida"
     const dentroSafra = inRange(colL);
-    const lavSafra       = (dentroSafra && conhecida(colC)) ? 1 : 0;
-    const conectadoSafra = (dentroSafra && conhecida(colD)) ? 1 : 0;
-    const agendadoSafra  = (dentroSafra && conhecida(colE)) ? 1 : 0;
-    const ganhoSafra     = (dentroSafra && conhecida(colF)) ? 1 : 0;
+    const leadSafra       = dentroSafra ? 1 : 0;
+    const lavSafra        = (dentroSafra && conhecida(colC)) ? 1 : 0;
+    const conectadoSafra  = (dentroSafra && conhecida(colD)) ? 1 : 0;
+    const agendadoSafra   = (dentroSafra && conhecida(colE)) ? 1 : 0;
+    const ganhoSafra      = (dentroSafra && conhecida(colF)) ? 1 : 0;
 
-    // Skip se essa linha não tem nenhum evento na janela (nem mes nem safra)
-    const totalEventos = lavMes + conectadoMes + agendadoMes + ganhoMes +
-                         lavSafra + conectadoSafra + agendadoSafra + ganhoSafra;
-    if (totalEventos === 0) continue;
+    // vendedor válido = tem owner E owner está na lista de pré-vendedores ativos.
+    // "Lead" conta pra QUALQUER linha (com ou sem owner válido) — é o topo de funil real.
+    // LAV/Conectado/Agendado/Ganho só fazem sentido atribuídos a um pré-vendedor do time.
+    const vendedor = colN ? normalizarVendedor(colN) : null;
+    const vendedorValido = !!vendedor && vendedoresValidos.has(vendedor);
 
-    // Agrega no totalizador por vendedor
-    mes[vendedor].lav       += lavMes;
-    mes[vendedor].conectado += conectadoMes;
-    mes[vendedor].agendado  += agendadoMes;
-    mes[vendedor].ganho     += ganhoMes;
-    safra[vendedor].lav       += lavSafra;
-    safra[vendedor].conectado += conectadoSafra;
-    safra[vendedor].agendado  += agendadoSafra;
-    safra[vendedor].ganho     += ganhoSafra;
-
-    // Agrega no fatiado (chave = vendedor|origemMacro|origemMicro|perfilAgrupado|tipoEstab)
-    const chave = vendedor + '|' + origemMacro + '|' + origemMicro + '|' + perfilAgrupado + '|' + tipoEstab;
-    if (!fatiadoAgg[chave]) {
-      fatiadoAgg[chave] = {
-        vendedor: vendedor,
-        origemMacro: origemMacro,
-        origemMicro: origemMicro,
-        perfilAgrupado: perfilAgrupado,
-        tipoEstab: tipoEstab,
-        mes:   { lav: 0, conectado: 0, agendado: 0, ganho: 0 },
-        safra: { lav: 0, conectado: 0, agendado: 0, ganho: 0 }
-      };
+    if (colN && !vendedorValido) {
+      desconhecidos[String(colN).trim()] = (desconhecidos[String(colN).trim()] || 0) + 1;
     }
-    const f = fatiadoAgg[chave];
-    f.mes.lav       += lavMes;
-    f.mes.conectado += conectadoMes;
-    f.mes.agendado  += agendadoMes;
-    f.mes.ganho     += ganhoMes;
-    f.safra.lav       += lavSafra;
-    f.safra.conectado += conectadoSafra;
-    f.safra.agendado  += agendadoSafra;
-    f.safra.ganho     += ganhoSafra;
+
+    if (vendedorValido) {
+      // Skip se essa linha não tem nenhum evento na janela (nem mes nem safra)
+      const totalEventos = leadMes + lavMes + conectadoMes + agendadoMes + ganhoMes +
+                           leadSafra + lavSafra + conectadoSafra + agendadoSafra + ganhoSafra;
+      if (totalEventos === 0) continue;
+
+      // Agrega no totalizador por vendedor
+      mes[vendedor].lead       += leadMes;
+      mes[vendedor].lav        += lavMes;
+      mes[vendedor].conectado  += conectadoMes;
+      mes[vendedor].agendado   += agendadoMes;
+      mes[vendedor].ganho      += ganhoMes;
+      safra[vendedor].lead       += leadSafra;
+      safra[vendedor].lav        += lavSafra;
+      safra[vendedor].conectado  += conectadoSafra;
+      safra[vendedor].agendado   += agendadoSafra;
+      safra[vendedor].ganho      += ganhoSafra;
+
+      // Agrega no fatiado (chave = vendedor|origemMacro|origemMicro|perfilAgrupado|tipoEstab|cidade)
+      const chave = vendedor + '|' + origemMacro + '|' + origemMicro + '|' + perfilAgrupado + '|' + tipoEstab + '|' + cidade;
+      if (!fatiadoAgg[chave]) {
+        fatiadoAgg[chave] = {
+          vendedor: vendedor,
+          origemMacro: origemMacro,
+          origemMicro: origemMicro,
+          perfilAgrupado: perfilAgrupado,
+          tipoEstab: tipoEstab,
+          cidade: cidade,
+          mes:   { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 },
+          safra: { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 }
+        };
+      }
+      const f = fatiadoAgg[chave];
+      f.mes.lead      += leadMes;
+      f.mes.lav       += lavMes;
+      f.mes.conectado += conectadoMes;
+      f.mes.agendado  += agendadoMes;
+      f.mes.ganho     += ganhoMes;
+      f.safra.lead      += leadSafra;
+      f.safra.lav       += lavSafra;
+      f.safra.conectado += conectadoSafra;
+      f.safra.agendado  += agendadoSafra;
+      f.safra.ganho     += ganhoSafra;
+    } else {
+      // Sem owner válido: não entra em LAV/Conectado/Agendado/Ganho (não tem pré-vendedor
+      // pra atribuir), mas ainda conta como "Lead" — senão o descarte por workflow desaparece.
+      if (leadMes === 0 && leadSafra === 0) continue;
+
+      const chaveSemOwner = origemMacro + '|' + origemMicro + '|' + perfilAgrupado + '|' + tipoEstab + '|' + cidade;
+      if (!fatiadoSemOwnerAgg[chaveSemOwner]) {
+        fatiadoSemOwnerAgg[chaveSemOwner] = {
+          origemMacro: origemMacro,
+          origemMicro: origemMicro,
+          perfilAgrupado: perfilAgrupado,
+          tipoEstab: tipoEstab,
+          cidade: cidade,
+          mes:   { lead: 0 },
+          safra: { lead: 0 }
+        };
+      }
+      fatiadoSemOwnerAgg[chaveSemOwner].mes.lead   += leadMes;
+      fatiadoSemOwnerAgg[chaveSemOwner].safra.lead += leadSafra;
+    }
   }
 
-  // Total = soma sobre vendedores
-  const totalMes   = { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
-  const totalSafra = { lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+  // Total = soma sobre vendedores + leads sem owner válido (só na etapa "lead")
+  const totalMes   = { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 };
+  const totalSafra = { lead: 0, lav: 0, conectado: 0, agendado: 0, ganho: 0 };
   vendedoresLista.forEach(function(v) {
+    totalMes.lead      += mes[v].lead;
     totalMes.lav       += mes[v].lav;
     totalMes.conectado += mes[v].conectado;
     totalMes.agendado  += mes[v].agendado;
     totalMes.ganho     += mes[v].ganho;
+    totalSafra.lead      += safra[v].lead;
     totalSafra.lav       += safra[v].lav;
     totalSafra.conectado += safra[v].conectado;
     totalSafra.agendado  += safra[v].agendado;
     totalSafra.ganho     += safra[v].ganho;
+  });
+  const fatiadoSemOwnerArr = Object.keys(fatiadoSemOwnerAgg).map(function(k) { return fatiadoSemOwnerAgg[k]; });
+  fatiadoSemOwnerArr.forEach(function(f) {
+    totalMes.lead   += f.mes.lead;
+    totalSafra.lead += f.safra.lead;
   });
   mes.Total   = totalMes;
   safra.Total = totalSafra;
@@ -592,6 +648,7 @@ function agregarFunilLeads_(ss) {
     mes:   mes,
     safra: safra,
     fatiado: fatiadoArr,
+    fatiadoSemOwner: fatiadoSemOwnerArr,
     dimensoes: dimensoes
   };
 }
@@ -621,6 +678,7 @@ function funilLeadsVazio_(ss, start, end) {
     mes:   {},
     safra: {},
     fatiado: [],
+    fatiadoSemOwner: [],
     dimensoes: { origemMacro: [], origemMicro: [], perfilAgrupado: [], tipoEstab: [] }
   };
 }
@@ -1025,12 +1083,33 @@ function agregarTipoReuniao_(ss) {
   cutoff.setHours(0, 0, 0, 0);
   cutoff.setDate(cutoff.getDate() - (CONFIG.TIPO_REUNIAO_DIAS || 180));
 
-  const mapTipo = function(v) {
+  // ATUALIZACAO 2026-08-24: online/presencial nao vem mais do campo tipo_de_reuniao
+  // do HubSpot -- vem de QUEM e o Executivo de Vendas (col R). So os 4 executivos
+  // abaixo fazem reuniao online; todo o resto (demais executivos, 'Sem executivo')
+  // conta como presencial. 'Reuniao Agora' continua vindo do HubSpot (nao e nem um
+  // nem outro). Validado no HubSpot: dos 211 negocios com tipo_de_reuniao preenchido,
+  // 47 batem nas duas regras, 7 saiam de online p/ presencial e 2 o inverso -- a
+  // diferenca e justamente o campo manual que ficava desatualizado.
+  const EXECUTIVOS_ONLINE_ = ['Cayo Martins', 'João Junqueira', 'Costanza Turetta', 'Rafael Matiello'];
+  const mapTipo = function(v, executivo) {
     const s = String(v || '').trim();
-    if (s === 'Reunião On Line') return 'online';
-    if (s === 'Reunião Presencial') return 'presencial';
     if (s === 'Reunião Agora') return 'agora';
+    if (s === 'Reunião On Line' || s === 'Reunião Presencial') {
+      return EXECUTIVOS_ONLINE_.indexOf(String(executivo || '').trim()) !== -1 ? 'online' : 'presencial';
+    }
     return 'outro';
+  };
+
+  // Cidade: agrupador regional derivado do campo "estado" (col J), ja sincronizado
+  // por leads.gs. MG vira "BH" porque a operacao mineira e Belo Horizonte + Nova Lima.
+  // Agrupa por UF e nao pelo nome da cidade de proposito: assim o gerente de SP
+  // enxerga ABC/Guarulhos/Osasco junto, que e como a meta dele e cobrada.
+  const mapCidade = function(uf) {
+    const s = String(uf || '').trim().toUpperCase();
+    if (s === 'SP') return 'SP';
+    if (s === 'RJ') return 'RJ';
+    if (s === 'MG') return 'BH';
+    return 'Outros';
   };
 
   const vendedoresSet = {};
@@ -1041,6 +1120,7 @@ function agregarTipoReuniao_(ss) {
     const tipoRaw       = dados[i][12]; // col Q -- tipo_de_reuniao
     const rotaRaw        = dados[i][6];  // col K -- rota_do_lead
     const executivoRaw   = dados[i][13]; // col R -- Executivo de Vendas
+    const estadoRaw      = dados[i][5];  // col J -- estado (UF)
 
     if (!colN || !dataAgendado || !tipoRaw) continue;
 
@@ -1054,9 +1134,10 @@ function agregarTipoReuniao_(ss) {
     items.push({
       date: formatarDataISO_(dt),
       vendedor: vendedorNorm,
-      tipo: mapTipo(tipoRaw),
+      tipo: mapTipo(tipoRaw, executivoRaw),
       rota: String(rotaRaw || '').trim() || 'Sem rota',
-      executivo: String(executivoRaw || '').trim() || 'Sem executivo'
+      executivo: String(executivoRaw || '').trim() || 'Sem executivo',
+      cidade: mapCidade(estadoRaw)
     });
   }
 

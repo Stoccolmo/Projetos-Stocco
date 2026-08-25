@@ -51,7 +51,7 @@ Dashboard de gestão do Pré-Vendas Inbound com abas de Visão Geral, Funil vs M
 
 ## Ambientes
 
-- **Produção**: planilha `1YebaLxqGoS38A_MUk-B0P50g0JL7Srh3T85mGJ_KdPY`, script `1gRnpQdbrQieE2QAkgnEXtTFAB1bdYR2d1CabNfk4Fg31iAXvD6ng3PWp`. Versão implantada atual: **Versão 15** (10/08/2026).
+- **Produção**: planilha `1YebaLxqGoS38A_MUk-B0P50g0JL7Srh3T85mGJ_KdPY`, script `1gRnpQdbrQieE2QAkgnEXtTFAB1bdYR2d1CabNfk4Fg31iAXvD6ng3PWp`. Versão implantada atual: **Versão 19** (25/08/2026).
 - **Teste**: planilha `1JnxESNWy_CutGxR6ak_Ma8sG9QfJUc3xFqYbGDAgugE` ("[TESTE] Meta e Andamento - Cópia"), script `1WnKDxA7ZdHk3O-th1iKMrknFA5o3Y9IJKwWxN1c2LZqz_InwrFwbJUMs` ("Copy of Dashboard Pré-Vendas"). Fluxo de trabalho: validar mudanças no teste primeiro, depois replicar em produção (edição direta via automação de navegador é possível, mas instável — ver notas técnicas). **Importante**: ao portar mudanças de teste pra produção, sempre checar `Code.gs` e `Reader.gs` também, não só `Index.html` — já aconteceu de uma mudança de backend ficar só no teste enquanto o frontend já tinha ido pra produção, quebrando a feature (MRR não aparecia porque faltava `mrrPorPreVendedor` no DATA).
 
 ## Pendências em aberto

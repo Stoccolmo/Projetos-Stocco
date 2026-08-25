@@ -127,3 +127,154 @@ Aplicado direto em produção (não só em teste) desta vez, incluindo o backend
 - [ ] Rotacionar/isolar o token do HubSpot em `Leads.gs` (mantido do registro anterior).
 - [ ] Dimensões do prompt original ainda não endereçadas (mantido do registro anterior).
 - [ ] **Automatizar (ou ao menos documentar um processo recorrente) para atualizar o snapshot de MRR por Pré-vendedor** — hoje é manual, feito rodando a consulta no Redshift e reescrevendo a aba via `escreverSnapshotMRR()`.
+
+---
+
+## 12/08/2026 — Investigação: por que "Visão Geral" (427) e "Online vs Presencial" (446) não batem em julho/2026
+
+### Contexto
+Rodrigo comparou dois prints do dashboard filtrados no mesmo período (01/07 a 31/07/2026): "Visão Geral" mostra 427 no total do período; "Online vs Presencial" mostra 446. Pediu explicação da diferença e, depois, exemplos concretos e verificados (não suposição).
+
+### Causa raiz — duas fontes diferentes, sem filtro de status em comum
+- **"Visão Geral" (427)**: vem da aba **"Neo Crescimento - PV"**, sincronizada do objeto **Deal** (0-3, pipeline "Executivo de Vendas 2.0") via `SyncNeo.gs`. A data usada é a do **Deal** (`data_da_reuniao__sdr_` ou, se vazia, `hs_v2_date_entered_194331064`). Já vem separado por status (Validados/A Validar/Não Válidos = 388+8+31=427).
+- **"Online vs Presencial" (446)**: vem da aba **"Base Leads 2025-2026"**, lendo `tipo_de_reuniao` do objeto **Lead** (0-136), filtrando só por período + pré-vendedor (`obterTipoReuniaoFiltrado` em `Index.html`) — **sem filtro de status de validação**.
+
+### Verificação real via API do HubSpot (não só leitura de código)
+Minha primeira tentativa de explicar a diferença (hipótese: "19 leads agendados sem Deal criado") **estava errada** — só percebi ao cruzar dados de verdade via API, não só lendo o código. Corrigido depois de consulta direta:
+- Busquei todos os Leads (0-136) com `tipo_de_reuniao` preenchido e `data_de_entrada_em_reuniao_agendada` em julho/2026 → **447 leads** (bate com o achado da sessão de 05/08, linha 32 acima).
+- Cruzei via `id_do_lead_associado` no Deal → **0 leads sem Deal associado**. Todo lead de julho já tem Deal criado.
+- A diferença real vem da data usada no Deal (`data_da_reuniao__sdr_`/`hs_v2_date_entered_194331064`), que diverge da data do Lead:
+  - **37 Deals** com essa data **em branco** (nunca preenchida pelo SDR) — quebra por estágio: 23 em "Negócio perdido", 12 ainda em "Envio de Proposta", 1 "Concluído", 1 em outro pipeline. Por "Reunião foi efetiva": 29 vazio, 4 Sim, 3 Não, 1 valor atípico ("Vendas"). Os 23 de "Negócio perdido" foram todos atualizados no mesmo dia (10/08/2026) — indício de um fechamento em lote de Deals antigos sem revisar/preencher a data da reunião antes de marcar como perdido.
+  - **12 Deals** com essa data caindo em **agosto**, não julho (ex.: Lead com reunião marcada em 31/07 mas o Deal só registra a reunião do SDR em 04/08).
+  - Total excluído da Visão Geral por esses dois motivos: 49 — parcialmente compensado por Deals de outros leads que entram pelo lado do Deal sem bater exatamente no filtro do Lead, resultando no gap líquido observado de ~19-20.
+
+### Exemplos concretos (verificados, com link do HubSpot — portal 23636141)
+Grupo "Deal com data de reunião em agosto, Lead marcado em julho":
+- Daniela Soares Santos — Lead 31/07, Deal registra reunião em 04/08 — [Lead](https://app.hubspot.com/contacts/23636141/record/0-136/549041497939) · [Deal](https://app.hubspot.com/contacts/23636141/record/0-3/63323381297)
+- Marta Loureiro — Lead 14/07, Deal registra reunião em 10/08 — [Lead](https://app.hubspot.com/contacts/23636141/record/0-136/569888494396) · [Deal](https://app.hubspot.com/contacts/23636141/record/0-3/63649722228)
+
+Grupo "Deal sem data de reunião preenchida" (todos em "Negócio perdido", atualizados em lote em 10/08):
+- Adriana Gonçalves — [Deal 62319138084](https://app.hubspot.com/contacts/23636141/record/0-3/62319138084)
+- Carla Bendia — [Deal 62310269441](https://app.hubspot.com/contacts/23636141/record/0-3/62310269441)
+
+### Lição
+Igual ao achado de 05/08 sobre `tipo_de_reuniao` homônimo em Deal vs Lead: **nunca confirmar uma hipótese de causa raiz só lendo o código** — quando dá pra cruzar com a API/dado real (aqui, `id_do_lead_associado` batch contra os 447 leads), fazer isso antes de apresentar a explicação como fato. A primeira hipótese ("leads sem Deal") parecia plausível pela leitura do código, mas os dados mostraram outra causa.
+
+### Pendências
+- [ ] Decidir com o time se os 23 Deals "Negócio perdido" sem data/efetividade de reunião preenchida devem ser corrigidos retroativamente (preencher manualmente) ou se é aceitável deixar como está — afeta a precisão histórica da Visão Geral pra julho/2026 pra frente.
+- [ ] Mantidas as pendências anteriores (token do HubSpot em `Leads.gs`, dimensões do prompt original, automação do snapshot MRR).
+
+---
+
+## 12/08/2026 (cont.) — Correção do achado acima: os 37 deals "sem data de reunião" NÃO estão vazios por falta de preenchimento — tem workflow do HubSpot resetando o campo
+
+### Contexto
+Rodrigo abriu no HubSpot os 4 exemplos que dei acima (Adriana, Carla Bendia, Luiz Paulo, Carla Mendes) e reportou algo que a leitura do valor atual da propriedade não mostrava: em pelo menos 2 casos (Carla Bendia, Luiz Paulo) o SDR **marcou "Não"** em "Reunião foi efetiva", mas o campo "não fixou" — voltou a ficar vazio. Notou que os 4 são todos leads de **reagendamento** e perguntou: isso significa que o agendamento está sendo contado 2x quando o lead reagenda?
+
+### Correção da minha explicação anterior
+Minha hipótese do registro acima ("37 deals com o campo simplesmente nunca preenchido") **estava incompleta** — de novo, só a leitura do valor atual (current state) não bastou; foi preciso puxar o **histórico da propriedade** (`propertiesWithHistory` na API do HubSpot) pra achar a causa real.
+
+### Causa raiz real (verificada via histórico de propriedades, não só valor atual)
+- **Não há duplicação de Deal por reagendamento** — confirmado: cada um dos 4 leads tem exatamente **1 Deal** associado (`id_do_lead_associado` com `operator: EQ`, sem limitar ao primeiro resultado). Reagendar não cria um Deal novo, reusa o mesmo.
+- **Existe um workflow de automação no HubSpot** (`sourceType: AUTOMATION_PLATFORM`) que **reseta `pre_vendas__reuniao_foi_efetiva` e `data_da_reuniao__sdr_` para vazio** pouco depois (segundos a poucos minutos) do SDR marcar "Não" via CRM_UI — provavelmente pensado para "limpar o terreno" pra uma nova tentativa de reagendamento. Padrão claro no histórico: `CRM_UI "Não" → AUTOMATION_PLATFORM ""`, repetido várias vezes no mesmo deal (Carla Bendia: 4 ciclos de "Não"→reset entre 07/07 e 15/07/2026).
+- **O problema**: nesses casos, nunca chegou um valor final depois do último reset — o deal fica parado nesse estado "vazio" pra sempre (nos 4 exemplos, todos acabaram em "Negócio perdido").
+- **Escala confirmada**: rodei o mesmo check de histórico nos 37 deals do achado anterior — **33 dos 37 (89%) mostram esse exato padrão** (teve "Não" marcado ao menos uma vez, foi resetado por automação, nunca recebeu valor novo depois). Só 4 não bateram esse padrão exato (podem ter outro histórico, não investigado a fundo).
+
+### Consequência real pro dashboard — é SUBCONTAGEM, não duplicação
+`SyncNeo.gs` só grava uma linha em "Neo Crescimento - PV" se a data da reunião estiver preenchida (`if (!reuniao) return;`, linha 65). Como o mesmo reset de automação limpa a data **junto** com a efetividade, esses 33 deals **somem inteiramente** da Visão Geral — não entram como "Não Válido", não entram como "A Validar", simplesmente não existem na aba. São reuniões que **de fato aconteceram** (o SDR chegou a registrar o resultado pelo menos uma vez) sendo **removidas do funil**, não contadas duas vezes. Isso é provavelmente uma parte relevante do próprio gap 427 vs 446 investigado no registro anterior desta mesma data — não só "data em agosto vs julho", mas esse bug de automação zerando registros que já tinham resultado.
+
+### Dois problemas distintos identificados por Rodrigo, ambos confirmados
+1. **Fluxo que não fixa a efetividade** — o workflow de automação no HubSpot precisa ser revisto (por quem administra as automações, fora do escopo do Apps Script/dashboard): resetar os campos só deveria acontecer se de fato uma nova reunião for agendada, não incondicionalmente após qualquer "Não".
+2. **Como o dashboard trata reagendamento** — hoje o `Reader.gs`/`SyncNeo.gs` só olha o **valor atual** da propriedade, nunca o histórico. Quando a automação zera o campo, a informação real (reunião aconteceu, não foi efetiva) existe no histórico do HubSpot mas fica invisível pro dashboard.
+
+### Lição (reforça a lição do registro anterior)
+Não basta cruzar o **valor atual** via API pra confirmar uma causa raiz quando o campo pode ter sido alterado por automação — sempre que o valor atual parecer "vazio/nunca preenchido" de forma suspeita (aqui, 89% dos casos "vazios" tinham sido preenchidos e resetados), vale a pena checar `propertiesWithHistory` antes de concluir.
+
+### Pendências
+- [ ] **Levar o achado do workflow de automação pra quem administra as automações do HubSpot** (não é algo que se corrige no Apps Script) — decidir se o reset deve parar de ocorrer incondicionalmente, ou passar a só ocorrer quando uma nova reunião é de fato agendada.
+- [ ] Decidir se vale reclassificar retroativamente (usando o histórico de propriedades) os deals afetados por julho/2026 em diante, ou aceitar a subcontagem em dados já passados e só corrigir daqui pra frente.
+- [ ] Avaliar se o dashboard deveria considerar histórico de propriedades em vez de só o valor atual pra casos como esse — ou se o conserto do workflow (pendência acima) já resolve na raiz, sem precisar de mudança no lado do dashboard.
+- [ ] Mantidas as pendências anteriores (token do HubSpot em `Leads.gs`, dimensões do prompt original, automação do snapshot MRR, achado sobre os 23 "Negócio perdido" acima — agora entendido como parte deste mesmo padrão de 33/37).
+
+---
+
+## 12/08/2026 (cont. 2) — Rodrigo valida a exclusão como correta, pede métrica de reagendamento; números confirmados nos 447 leads de julho/2026
+
+### Posição de Rodrigo
+Depois do achado acima, Rodrigo discordou que seja um "bug do dashboard": na visão dele, esses deals excluídos **são** de fato agendamentos que pediram reagendamento e não conseguimos reagendar — então a dashboard estar "correta" em não contá-los como passe válido faz sentido. O pedido dele não foi corrigir a exclusão, e sim **criar visibilidade** pra esse funil: quantos agendamentos pediram reagendamento, quantos conseguimos reagendar, quantos não. Ele desconfiava que os deals "vazios" fossem majoritariamente do tipo "pediu reagendamento e não conseguimos".
+
+### Números (histórico de propriedade `pre_vendas__reuniao_foi_efetiva`, verificado nos 447 leads de julho/2026 — não só na amostra de 37 do achado anterior)
+
+| Categoria | Qtd | % dos 447 |
+|---|---|---|
+| Nunca marcou "Não" (não pediu reagendamento) | 366 | 81,9% |
+| **Marcou "Não" em algum momento (pediu/precisou reagendar)** | **81** | **18,1%** |
+| ↳ Reagendou com sucesso (valor atual = "Sim") | 17 | 3,8% |
+| ↳ Ainda "Não" fixado (não reagendou, valor final preservado) | 34 | 7,6% |
+| ↳ **Resetado pela automação, nunca mais preenchido** | **30** | **6,7%** |
+
+**Confirmada a suspeita de Rodrigo**: os 30 deals do último grupo são exatamente "pediu reagendamento e não conseguimos reagendar" — só que, por causa do bug de automação (achado anterior), ficam **invisíveis** na Visão Geral em vez de aparecerem como uma categoria própria de reagendamento fracassado. Os 34 "ainda Não fixado" provavelmente já entram corretamente hoje como Não Válido (o valor final não foi resetado).
+
+### Decisão
+Rodrigo quer esse número (pediu reagendamento / conseguiu / não conseguiu) visível na dashboard, pra cobrar o time (visão por pré-vendedor, não só agregado). Recomendei — e Rodrigo confirmou via mockup — uma **aba nova "Reagendamentos"**, no mesmo padrão visual da aba "Ranking", posicionada **logo à direita de "Visão Geral"** na barra de abas (antes de Ranking/Evolução/Funil vs Meta/Cohort/Online vs Presencial/MRR). Conteúdo: 4 cards de resumo no topo (pediram reagendamento / conseguimos / não conseguimos / perdidos no fluxo de automação) + tabela por pré-vendedor (pediu, conseguiu, não conseguiu, % de sucesso) — essa tabela por pessoa é o que de fato viabiliza a cobrança do time.
+
+Fonte de dados: histórico da propriedade `pre_vendas__reuniao_foi_efetiva` no Deal (0-3) via `propertiesWithHistory` — **hoje não existe no Apps Script nenhuma leitura de histórico de propriedade**, só valor atual (`properties=`). Precisa de implementação nova (a API do Apps Script pra isso é `UrlFetchApp` no mesmo endpoint `GET /crm/v3/objects/deals/{id}?propertiesWithHistory=...`, mas é 1 chamada por deal — para todo o histórico da base isso pode ficar caro/lento; vale avaliar se dá pra restringir a um período recente por sync incremental, ou se `search` com histórico em lote é viável). A tabela por pré-vendedor ainda **não tem dado real** — só o agregado dos 447 leads de julho foi verificado; falta cruzar `sdr` (owner do Deal) com o histórico pra fechar o breakdown por pessoa.
+
+### Pendências
+- [ ] **Implementar a aba "Reagendamentos"** (posição: à direita de "Visão Geral") com os 4 cards de resumo + tabela por pré-vendedor — decidir como buscar o histórico de forma performática (`propertiesWithHistory` por deal, 1 chamada cada).
+- [ ] Cruzar o histórico de reagendamento com o owner (`sdr`) de cada Deal pra ter o breakdown real por pré-vendedor (hoje só existe o agregado de julho/2026).
+- [ ] Mantidas as pendências anteriores (workflow de automação que reseta o campo, token do HubSpot em `Leads.gs`, dimensões do prompt original, automação do snapshot MRR).
+
+---
+
+## 24-25/08/2026 — Regra nova de online/presencial (por Executivo de Vendas) + filtro de cidade (SP/RJ/BH)
+
+### Contexto
+Dois pedidos do Rodrigo: (1) online/presencial deixar de depender do campo manual `tipo_de_reuniao` do HubSpot e passar a ser derivado de **quem é o Executivo de Vendas**; (2) um filtro de cidade (SP/RJ/BH), porque os gerentes de cada praça perguntam isso direto e hoje não há como responder.
+
+### Decisão 1 — online/presencial vem do Executivo de Vendas, não do campo manual
+Só 4 executivos fazem reunião online: **Cayo Martins, João Junqueira, Costanza Turetta, Rafael Matiello**. Qualquer outro executivo (ou "Sem executivo") conta como **presencial**. "Reunião Agora" continua vindo do HubSpot — não é online nem presencial.
+
+Implementado em `agregarTipoReuniao_` (Reader.gs): `mapTipo(v, executivo)` agora recebe o executivo (col R da Base Leads, já populada por `sincronizarExecutivoDeVendas_`).
+
+**Validação real via API (não inferência)**: dos 211 negócios com `tipo_de_reuniao` preenchido, 47 batem nas duas regras, 7 saíam de online → presencial e 2 o inverso. A divergência é justamente o campo manual que ficava desatualizado — ou seja, a regra nova corrige, não distorce.
+
+**Impacto esperado nos números**: em agosto/2026 a regra antiga dava ~57% online (204/153); a nova dá ~38%. Queda esperada, não bug — avisar quem acompanha o indicador.
+
+### Decisão 2 — filtro de cidade agrupa por UF, não por nome de cidade
+Agrupador: campo `estado` (col J da Base Leads, **já sincronizado** por `leads.gs` — não precisou tocar no sync). Mapeamento `SP → SP`, `RJ → RJ`, `MG → BH`, resto → `Outros`.
+
+Agrupar por UF em vez de nome de cidade foi deliberado: assim o gerente de SP enxerga ABC/Guarulhos/Osasco junto (que é como a meta dele é cobrada) e BH inclui Nova Lima. Distribuição medida em 6.000 leads dos últimos 120 dias: SP 3.450 · RJ 1.565 · BH 690 · Outros 295 (ES + vazios, ~5%).
+
+Aplicado em **duas** abas, por caminhos de dados diferentes:
+- **Online vs Presencial**: itens granulares → filtro direto em `obterTipoReuniaoFiltrado` (`i.cidade !== cd`).
+- **Funil vs Meta**: agregação por chave → `cidade` entrou na chave do `fatiado` **e** do `fatiadoSemOwner` (senão os leads sem dono desapareceriam ao filtrar). Cardinalidade do fatiado sobe 2,25x (172 → 387 chaves em 6k leads) — cabe no cache fragmentado do `Code.gs` (blocos de 90KB).
+
+### Gotcha 1 — `passaCidade_` ficou de propósito FORA de `aplicarFiltrosDimensoes_`
+`aplicarFiltrosDimensoes_` é compartilhada entre **Funil vs Meta e Evolução**. Os itens da Evolução (timeline) não carregam `cidade` — se o filtro entrasse ali, a Evolução seria zerada silenciosamente, sem o seletor de cidade nem estar visível naquela aba. Por isso existe um helper separado `passaCidade_(item)`, aplicado só nos 4 pontos do Funil.
+
+### Gotcha 2 (bug real, custou uma versão) — atalho de performance no `recalcularAgregadosFunil_`
+Depois de publicar a v18, Rodrigo testou e **o filtro não mudava nada** no Funil. Causa: `recalcularAgregadosFunil_` tem um atalho — se **nenhum** filtro de dimensão está ativo, devolve o agregado pronto do backend e **nem percorre o `fatiado`**, que é a única estrutura com `cidade`. O filtro só funcionaria se o usuário marcasse junto algum Origem/Perfil/Tipo.
+
+Correção: `temFiltrosDimensoesAtivos_()` passou a considerar o seletor de cidade, desviando o atalho. Efeito colateral bom: o aviso âmbar "ⓘ Filtros aplicados — agregados recalculados client-side" agora aparece também ao filtrar por cidade, o que serve de sinal visual de que o recálculo rodou.
+
+**Lição**: ao adicionar uma dimensão nova de filtro no Funil, não basta incluí-la na agregação e no predicado — tem que checar se existe fast-path que curto-circuita o `fatiado`.
+
+### Verificação em produção
+Backend validado pela rota `?action=fetch` (não só por leitura de código): `fatiado` com 244 entradas todas com `cidade` (SP 85 · RJ 83 · BH 43 · Outros 33) e 2.058 itens em `tipoReuniao` (SP 1096 · RJ 642 · BH 312 · Outros 8). Confirmou que o backend estava certo e isolou o bug no frontend.
+
+### Deploy
+Aplicado direto no projeto de produção `1gRnpQdbrQieE2QAkgnEXtTFAB1bdYR2d1CabNfk4Fg31iAXvD6ng3PWp`, na implantação oficial (`AKfycbyI171A-...`), cujo ID foi conferido no diálogo **antes de cada publicação** (seguindo a lição registrada em 05/08). Três versões, mesma URL pública:
+- **Versão 17** — regra nova de online/presencial + filtro de cidade na aba Online vs Presencial
+- **Versão 18** — filtro de cidade no Funil vs Meta
+- **Versão 19** — correção do atalho do `recalcularAgregadosFunil_`
+
+Rodrigo validou visualmente ("parece estar funcionando sim") após a v19.
+
+### Achado de automação (vale pra próximas sessões)
+Os diálogos de implantação do Apps Script **não respondem a clique sintético por coordenada** (o viewport estava em 2560px com zoom 75%, e o frame do screenshot não batia com o DOM). O que funcionou: localizar o elemento no DOM e disparar a sequência completa `pointerdown → mousedown → pointerup → mouseup → click`. Edições de código também saíram muito mais confiáveis via `monaco.editor.getModels()[i].pushEditOperations` com âncoras de string exatas (conferindo que cada âncora aparece exatamente 1x antes de substituir) do que por digitação simulada, que corrompeu o arquivo várias vezes.
+
+### Pendências
+- [ ] Avaliar levar o filtro de cidade também pra aba **Evolução** — exigiria incluir `cidade` na agregação da timeline (`agregarTimeline_`), hoje ausente.
+- [ ] `README.md` e `docs/HANDOFF_DASH_INBOUND.md` citavam "Versão 15" como implantada — atualizados nesta sessão para refletir a v19.
+- [ ] Mantidas as pendências anteriores (aba Reagendamentos, workflow que reseta `pre_vendas__reuniao_foi_efetiva`, token do HubSpot hardcoded em `leads.gs`, automação do snapshot MRR).
