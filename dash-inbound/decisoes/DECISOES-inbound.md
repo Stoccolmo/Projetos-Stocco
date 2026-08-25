@@ -278,3 +278,42 @@ Os diálogos de implantação do Apps Script **não respondem a clique sintétic
 - [ ] Avaliar levar o filtro de cidade também pra aba **Evolução** — exigiria incluir `cidade` na agregação da timeline (`agregarTimeline_`), hoje ausente.
 - [ ] `README.md` e `docs/HANDOFF_DASH_INBOUND.md` citavam "Versão 15" como implantada — atualizados nesta sessão para refletir a v19.
 - [ ] Mantidas as pendências anteriores (aba Reagendamentos, workflow que reseta `pre_vendas__reuniao_foi_efetiva`, token do HubSpot hardcoded em `leads.gs`, automação do snapshot MRR).
+
+---
+
+## 25/08/2026 (cont.) — Atualização 3x/dia + correção de um bug de ordem nos acionadores
+
+### Contexto
+Rodrigo pediu que a dash atualizasse 3x/dia (08h, 12h, 18h) em vez de 1x. Ao inspecionar os acionadores, apareceram dois problemas que ele não sabia que existiam.
+
+### Achado 1 (bug real, silencioso) — "Passes Do Mês" era montado com dados do dia anterior
+`sincronizarPassesDoMes` **deriva** de "Neo Crescimento - PV", mas os dois estavam agendados pra "hora 6" e o Apps Script **não garante ordem** dentro da janela de 1h. Na prática (verificado na aba Execuções): Passes rodava **06:37** e Neo **06:49** — ou seja, o Passes vinha sendo construído com o Neo do **dia anterior**, todo dia.
+
+Correção: os dois passam a rodar na **mesma execução**, em sequência, via wrapper `atualizarNeoEPasses()`. É a única forma de garantir ordem no Apps Script.
+
+### Achado 2 — o sync de leads está encostando no limite de execução
+`exportarLeadsParaSheets` levou **361s (6 min)** em 25/08, contra 230s em 24/08 — crescimento de 57% em um dia. Por isso ele ficou **sozinho** e uma hora antes (07/11/17), em vez de entrar no mesmo wrapper: 361+23+12 ≈ 6,6 min arriscaria estourar o limite. **Risco em aberto**: se continuar crescendo, começa a falhar. Saída seria sync incremental em vez de reprocessar a base inteira todo dia.
+
+### Agendamento novo (instalado via `instalarTriggers3xDia`)
+| Função | Horários | Duração típica |
+|---|---|---|
+| `exportarLeadsParaSheets` | 07h · 11h · 17h | ~230-361s |
+| `atualizarNeoEPasses` (neo → passes) | 08h · 12h · 18h | ~35s |
+
+`atHour(H)` roda numa janela de ~1h a partir de H, não no minuto exato — foi por isso que "hora 6" virava 06:37/06:49.
+
+### Acionador órfão (não removível)
+O acionador antigo de `sincronizarPassesDoMes` pertence a **"Outro usuário"**. Acionadores são por usuário e `ScriptApp.getProjectTriggers()` só enxerga os do usuário corrente — então nem o instalador nem Rodrigo conseguem removê-lo. **A UI do Apps Script não revela quem é o dono** (mostra só "Eu" / "Outro usuário"); a API do Drive também não resolve, porque projetos standalone não são acessíveis por lá. Único caminho: perguntar a quem tem acesso de edição (o dono vê como "Eu") ou log de auditoria do Admin Console.
+
+**Decisão: deixar como está.** O efeito é inofensivo — ele reconstrói o Passes às ~06:37 com o Neo das 18h do dia anterior, e a rodada das ~08h refaz corretamente por cima. Antes o dado ficava defasado o dia inteiro; agora só entre 06:37 e 08h. Ruído cosmético, não risco.
+
+### Achado de automação (complementa o registro anterior)
+O **seletor de função** ("Selecione a função para executar") e o botão **Executar** não respondem a clique sintético nos DIVs externos. Dois aprendizados:
+- O seletor assume automaticamente a **primeira função do arquivo aberto**. Workaround que funcionou: mover `instalarTriggers3xDia` pro topo do `Sync.gs` — aí o seletor a escolhe sozinho, sem precisar abrir o dropdown (que ignora clique e teclado).
+- Pro botão Executar, era preciso mirar no `<button>` real (`span.closest('button')`), não nos DIVs que o envolvem. Mirando nos DIVs o clique "passa" sem efeito.
+- **Cuidado**: recarregar a página reseta o seletor pra primeira função do arquivo padrão (Cohort.gs). Numa tentativa isso fez rodar `construirCohortPassesSemana` por engano (inofensivo, é o recálculo normal do cohort) — não recarregar entre selecionar e executar.
+
+### Pendências
+- [ ] **Monitorar o tempo do `exportarLeadsParaSheets`** (361s e subindo, teto de 6 min). Avaliar sync incremental.
+- [ ] Remover o acionador órfão quando o dono for identificado (baixa prioridade).
+- [ ] Confirmar amanhã, na aba Execuções, que os acionadores dispararam nos horários novos.

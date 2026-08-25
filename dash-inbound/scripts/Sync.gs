@@ -5,6 +5,34 @@
 // + createdate (data de criação do negócio) — exige o IMPORTRANGE ampliado p/ A:Q.
 // Mapeia para o layout de 12 colunas da "Passes Do Mês" → cohort/timeline funcionam sem alteração.
 
+// Rode UMA vez pra reagendar tudo pra 3x/dia.
+// Remove os acionadores antigos (os que pertencem a ESTE usuário) e cria:
+//   exportarLeadsParaSheets -> 07h, 11h, 17h  (pesado, roda antes)
+//   atualizarNeoEPasses     -> 08h, 12h, 18h  (neo + passes, nesta ordem)
+// Obs.: atHour(H) roda numa janela de ~1h a partir de H, não no minuto exato.
+function instalarTriggers3xDia() {
+  var alvos = ['exportarLeadsParaSheets', 'sincronizarNeoCrescimento',
+               'sincronizarPassesDoMes', 'atualizarNeoEPasses'];
+  var removidos = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (alvos.indexOf(t.getHandlerFunction()) !== -1) {
+      ScriptApp.deleteTrigger(t);
+      removidos++;
+    }
+  });
+
+  [7, 11, 17].forEach(function (h) {
+    ScriptApp.newTrigger('exportarLeadsParaSheets').timeBased().everyDays(1).atHour(h).create();
+  });
+  [8, 12, 18].forEach(function (h) {
+    ScriptApp.newTrigger('atualizarNeoEPasses').timeBased().everyDays(1).atHour(h).create();
+  });
+
+  var msg = 'Acionadores reinstalados. Removidos: ' + removidos + '. Criados: 6 (leads 07/11/17, neo+passes 08/12/18).';
+  Logger.log(msg);
+  return msg;
+}
+
 function sincronizarPassesDoMes() {
   const ss = SpreadsheetApp.openById(CONFIG.ID_PLANILHA_MAE);
   const origem  = ss.getSheetByName(CONFIG.ABA_NEO_CRESCIMENTO); // 'Neo Crescimento - PV'
@@ -67,4 +95,23 @@ function instalarTriggerSyncPassesDoMes() {
   });
   ScriptApp.newTrigger('sincronizarPassesDoMes').timeBased().everyDays(1).atHour(6).create();
   Logger.log('Trigger diário instalado.');
+}
+// =============================================================
+// AGENDAMENTO 3x/DIA (08h / 12h / 18h) — instalado 25/08/2026
+// =============================================================
+// Antes: 1x/dia (leads 05h, neo 06h, passes 06h) — e com um bug de ordem:
+// "Passes Do Mês" DERIVA de "Neo Crescimento - PV", mas os dois estavam
+// agendados pra mesma hora e o Apps Script não garante ordem dentro da
+// janela. Na prática o Passes rodava ~06:37 e o Neo ~06:49, ou seja, o
+// Passes vinha sendo montado com o Neo do dia ANTERIOR.
+//
+// Por isso os dois passam a rodar na MESMA execução, em sequência — é a
+// única forma de garantir a ordem. Juntos levam ~35s, folgado.
+//
+// Já o exportarLeadsParaSheets fica SOZINHO e uma hora antes: ele levou
+// 361s (6 min) em 25/08 e vem crescendo (230s no dia anterior). Encostar
+// os outros dois nele arriscaria estourar o limite de execução.
+function atualizarNeoEPasses() {
+  sincronizarNeoCrescimento();
+  sincronizarPassesDoMes();
 }
