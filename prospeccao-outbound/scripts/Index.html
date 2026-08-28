@@ -56,7 +56,7 @@ table.ph-table tr.total td { font-weight:700; background:var(--surface2); }
 .ph-foot { font-size:.72rem; color:var(--text3); line-height:1.6; margin-top:1.5rem; }
 .ph-info { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; border:1px solid var(--text3); color:var(--text3); font-size:.62rem; font-weight:700; margin-left:.4rem; cursor:pointer; user-select:none; vertical-align:middle; line-height:1; }
 .ph-info:hover { border-color:var(--accent); color:var(--accent); }
-.ph-popover { position:absolute; z-index:50; max-width:300px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:.75rem .85rem; font-size:.75rem; line-height:1.55; color:var(--text2); box-shadow:0 12px 32px rgba(0,0,0,.5); }
+.ph-popover { position:absolute; z-index:50; max-width:380px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:.75rem .85rem; font-size:.75rem; line-height:1.55; color:var(--text2); box-shadow:0 12px 32px rgba(0,0,0,.5); }
 .ph-refresh-btn { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:.45rem .9rem; font-size:.75rem; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap; }
 .ph-refresh-btn:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
 .ph-refresh-btn:disabled { opacity:.6; cursor:default; }
@@ -81,7 +81,7 @@ recomputeDerived();
 var HUBSPOT_BASE = 'https://app.hubspot.com/contacts/23636141/record/0-3/';
 var COLOR = { good:'#37cc4d', warn:'#e0a72e', bad:'#e2665f' };
 var _nowInit = new Date();
-var STATE = { periodo:'mes_atual', vendedor:'todos', origem:'todos', tab:'geral',
+var STATE = { periodo:'mes_atual', vendedor:'todos', origem:'todos', cidade:'todos', tab:'geral',
 customStart: toISO(new Date(_nowInit.getFullYear(), _nowInit.getMonth(), 1)),
 customEnd: toISO(_nowInit) };
 
@@ -133,6 +133,19 @@ var d = new Date(dateStr);
 return d >= range.start && d < range.end;
 }
 
+function isDiaUtil_(d){ var wd = d.getDay(); return wd !== 0 && wd !== 6; }
+
+function diasUteisEntre_(start, end){
+var count = 0;
+var d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+var endD = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+while (d < endD) {
+if (isDiaUtil_(d)) count++;
+d.setDate(d.getDate() + 1);
+}
+return count;
+}
+
 function filterByVendedor(list){
 if (STATE.vendedor === 'todos') return list;
 return list.filter(function(d){ return d.bdr === STATE.vendedor; });
@@ -143,8 +156,31 @@ if (STATE.origem === 'todos') return list;
 return list.filter(function(d){ return (d.origem || 'Nenhuma') === STATE.origem; });
 }
 
+// Cidade: agrupador regional derivado do campo "estado" do deal (UF, ja vindo do
+// HubSpot via DEAL_PROPS). Mesma regra da dash de Inbound: MG vira "BH" porque a
+// operacao mineira e Belo Horizonte + Nova Lima, e agrupa por UF em vez de nome de
+// cidade de proposito -- assim SP inclui ABC/Guarulhos/Osasco, que e como a meta e
+// cobrada. No pipeline outbound so existem SP/RJ/MG hoje; "Outros" pega os deals
+// com estado em branco (~3% da base).
+function mapCidade_(uf){
+var s = String(uf == null ? '' : uf).trim().toUpperCase();
+if (s === 'SP') return 'SP';
+if (s === 'RJ') return 'RJ';
+if (s === 'MG') return 'BH';
+return 'Outros';
+}
+
+function filterByCidade(list){
+if (STATE.cidade === 'todos') return list;
+return list.filter(function(d){ return mapCidade_(d.estado) === STATE.cidade; });
+}
+
+// Ponto unico de filtro: todas as 6 abas partem de filterDeals(DATA.deals), entao a
+// cidade passa a valer em todas elas de uma vez -- diferente do Inbound, onde o
+// filtro teve de ser aplicado aba por aba porque os itens da Evolucao nao carregam
+// cidade. Aqui todo deal carrega estado, logo nao ha aba de fora.
 function filterDeals(list){
-return filterByOrigem(filterByVendedor(list));
+return filterByCidade(filterByOrigem(filterByVendedor(list)));
 }
 
 function activeBdrs(){
@@ -173,6 +209,9 @@ html += '<label>Até <input type="date" id="fCustomEnd" value="'+esc(STATE.custo
 html += '<label>Vendedor <select id="fVendedor"><option value="todos"'+(STATE.vendedor==='todos'?' selected':'')+'>Todos os vendedores</option>'+bdrOptions+'</select></label>';
 html += '<label>Origem <select id="fOrigem"><option value="todos"'+(STATE.origem==='todos'?' selected':'')+'>Todas as origens</option>';
 ORIGEM_NAMES.forEach(function(o){ html += '<option value="'+esc(o)+'"'+(STATE.origem===o?' selected':'')+'>'+esc(o)+'</option>'; });
+html += '</select></label>';
+html += '<label>Cidade <select id="fCidade"><option value="todos"'+(STATE.cidade==='todos'?' selected':'')+'>Todas as cidades</option>';
+['SP','RJ','BH','Outros'].forEach(function(c){ html += '<option value="'+c+'"'+(STATE.cidade===c?' selected':'')+'>'+c+'</option>'; });
 html += '</select></label>';
 html += '</div>';
 html += '<div class="ph-tabs">';
@@ -206,6 +245,7 @@ setTimeout(function(){ btn.textContent = original; }, 5000);
 document.getElementById('fPeriodo').addEventListener('change', function(e){ STATE.periodo = e.target.value; renderShell(); });
 document.getElementById('fVendedor').addEventListener('change', function(e){ STATE.vendedor = e.target.value; renderTab(); });
 document.getElementById('fOrigem').addEventListener('change', function(e){ STATE.origem = e.target.value; renderTab(); });
+document.getElementById('fCidade').addEventListener('change', function(e){ STATE.cidade = e.target.value; renderTab(); });
 if (STATE.periodo === 'custom') {
 document.getElementById('fCustomStart').addEventListener('change', function(e){ STATE.customStart = e.target.value; renderTab(); });
 document.getElementById('fCustomEnd').addEventListener('change', function(e){ STATE.customEnd = e.target.value; renderTab(); });
@@ -228,7 +268,7 @@ pop.className = 'ph-popover';
 pop.textContent = icon.getAttribute('data-tip');
 document.body.appendChild(pop);
 var r = icon.getBoundingClientRect();
-var left = Math.min(r.left, window.innerWidth - 316);
+var left = Math.min(r.left, window.innerWidth - 396);
 pop.style.left = Math.max(8, left) + 'px';
 pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
 });
@@ -258,7 +298,7 @@ else if (STATE.tab === 'cohort') body.innerHTML = viewCohort();
 function computeGeral(){
 var range = periodRange(STATE.periodo);
 var deals = filterDeals(DATA.deals);
-var inPeriod = deals.filter(function(d){ return inRange(dataParaMeta(d), range); });
+var inPeriod = deals.filter(function(d){ return inRange(dataParaMeta(d), range) && !d.isPerdido && !d.isReagendamento; });
 var validados = inPeriod.filter(function(d){ return d.reuniaoEfetiva === 'Sim'; }).length;
 var naoValidos = inPeriod.filter(function(d){ return d.reuniaoEfetiva === 'Não'; }).length;
 var total = inPeriod.length;
@@ -266,21 +306,25 @@ var aValidar = total - validados - naoValidos;
 
 var todayIso = toISO(new Date());
 var hoje = deals.filter(function(d){ return d.dataReuniao === todayIso; }).length;
+var aValidarPassado = inPeriod.filter(function(d){ return d.reuniaoEfetiva !== 'Sim' && d.reuniaoEfetiva !== 'Não' && d.dataReuniao && d.dataReuniao <= todayIso; }).length;
+var realizadoEstimado = validados + 0.85*aValidarPassado;
 var wr = periodRange('ultimos_7');
 var semana = deals.filter(function(d){ return inRange(d.dataReuniao, wr); }).length;
 
 var now = new Date();
-var msDay = 86400000;
-var diasTotais = Math.max(1, Math.round((range.end - range.start) / msDay));
 var fimEfetivo = now < range.end ? now : range.end;
-var diasDecorridos = Math.min(diasTotais, Math.max(1, Math.round((fimEfetivo - range.start) / msDay)));
-var mediaPorDia = (total / diasDecorridos).toFixed(1);
+var fimEfetivoIncl = new Date(fimEfetivo.getFullYear(), fimEfetivo.getMonth(), fimEfetivo.getDate()+1);
+var diasTotais = Math.max(1, diasUteisEntre_(range.start, range.end));
+var diasDecorridos = Math.min(diasTotais, Math.max(1, diasUteisEntre_(range.start, fimEfetivoIncl)));
+var diasRestantes = Math.max(0, diasTotais - diasDecorridos);
+var ritmo = total / diasDecorridos;
+var mediaPorDia = ritmo.toFixed(1);
 
 var bdrs = activeBdrs();
 var metasMapG = metasForRange(range);
 var meta = bdrs.reduce(function(s,n){ return s + (metasMapG[n]||0); }, 0);
 var metaProRata = meta * (diasDecorridos / diasTotais);
-var projecao = Math.round(validados + 0.85*aValidar);
+var projecao = Math.round(validados + 0.85*(aValidar + ritmo*diasRestantes));
 
 var lider = null, liderVal = -1;
 bdrs.forEach(function(n){
@@ -288,7 +332,7 @@ var v = inPeriod.filter(function(d){ return d.bdr===n && d.reuniaoEfetiva==='Sim
 if (v > liderVal) { liderVal = v; lider = n; }
 });
 
-var bookingCohort = deals.filter(function(d){ return d.stageDates && d.stageDates[4] && inRange(d.stageDates[4], range); });
+var bookingCohort = deals.filter(function(d){ return d.stageDates && d.stageDates[4] && inRange(d.stageDates[4], range) && !d.isPerdido && !d.isReagendamento; });
 var bookingValidados = bookingCohort.filter(function(d){ return d.reuniaoEfetiva === 'Sim'; }).length;
 var bookingNaoValidos = bookingCohort.filter(function(d){ return d.reuniaoEfetiva === 'Não'; }).length;
 var bookingTotal = bookingCohort.length;
@@ -296,6 +340,7 @@ var bookingAValidar = bookingTotal - bookingValidados - bookingNaoValidos;
 
 return { range:range, inPeriod:inPeriod, deals:deals, total:total, validados:validados, aValidar:aValidar, naoValidos:naoValidos,
 hoje:hoje, semana:semana, mediaPorDia:mediaPorDia, meta:meta, metaProRata:metaProRata, projecao:projecao, lider:lider, liderVal:liderVal, bdrs:bdrs,
+diasDecorridos:diasDecorridos, diasRestantes:diasRestantes, aValidarPassado:aValidarPassado, realizadoEstimado:realizadoEstimado,
 bookingTotal:bookingTotal, bookingValidados:bookingValidados, bookingAValidar:bookingAValidar, bookingNaoValidos:bookingNaoValidos };
 }
 
@@ -306,10 +351,11 @@ h += '<div class="ph-grid">';
 h += '<div class="ph-card"><div class="lbl">Total no período'+infoIcon('Quantidade de reuniões com DATA DA REUNIÃO marcada dentro do período selecionado (Validadas + A validar + Não válidas). Não olha quando o agendamento foi feito nem quando o lead foi criado — só a data em que a reunião está/estava marcada para acontecer. Esse é o número usado no atingimento da meta. Veja também a seção "Agendamentos feitos no período" logo abaixo, que conta pela data em que o agendamento foi realizado (mesmo critério do relatório nativo do HubSpot) — pode diferir deste.')+'</div><div class="val ph-num">'+g.total+'</div><div class="sub2">'+toISO(g.range.start)+' a '+toISO(new Date(g.range.end-1))+'</div></div>';
 h += '<div class="ph-card"><div class="lbl">Esta semana'+infoIcon('Mesma métrica de Total no período, mas fixa nos últimos 7 dias corridos — não muda com o filtro de Período.')+'</div><div class="val ph-num">'+g.semana+'</div></div>';
 h += '<div class="ph-card"><div class="lbl">Hoje'+infoIcon('Quantidade de reuniões marcadas para a data de hoje.')+'</div><div class="val ph-num">'+g.hoje+'</div></div>';
-h += '<div class="ph-card"><div class="lbl">Média por dia'+infoIcon('Total no período dividido pelos dias já decorridos dentro do período (não pelos dias totais), para não subestimar o ritmo em períodos ainda em andamento.')+'</div><div class="val ph-num">'+g.mediaPorDia+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Média por dia'+infoIcon('Total no período dividido pelos DIAS ÚTEIS já decorridos dentro do período (não conta sábado/domingo, não é pelos dias corridos totais), para não subestimar o ritmo em períodos ainda em andamento.')+'</div><div class="val ph-num">'+g.mediaPorDia+'</div></div>';
 h += '<div class="ph-card"><div class="lbl">Líder do período (válidos)'+infoIcon('Vendedor com mais reuniões marcadas como Válidas (reunião efetiva = Sim) dentro do período selecionado.')+'</div><div class="val" style="font-size:1.2rem;color:var(--accent)">'+(g.lider||'-')+'</div><div class="ph-badge good">'+g.liderVal+' válidos</div></div>';
-h += '<div class="ph-card"><div class="lbl">Atingimento projeção'+infoIcon('Validados do período dividido pela Meta pro-rata (meta ajustada pelos dias já decorridos). Mostra se o ritmo atual está dentro do esperado até hoje.')+'</div><div class="val ph-num">'+pct(g.validados,g.metaProRata)+'%</div><div class="sub2">vs meta pro rata</div></div>';
-h += '<div class="ph-card"><div class="lbl">Atingimento projetado (fim período)'+infoIcon('Projeta o resultado final do período (Validados + 85% do que ainda está A Validar) e compara com a Meta cheia do período.')+'</div><div class="val ph-num">'+pct(g.projecao,g.meta)+'%</div><div class="sub2">projeção '+g.projecao+' / meta '+g.meta+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Atingimento até hoje'+infoIcon('RESULTADO REAL, sem nenhuma estimativa: só o que já foi confirmado como reunião efetiva. FÓRMULA: Validados ÷ Meta pro-rata. A Meta pro-rata é a meta cheia do período ajustada pelos dias ÚTEIS já decorridos (não conta sábado e domingo) — hoje, '+g.diasDecorridos+' de '+(g.diasDecorridos+g.diasRestantes)+' dias úteis, o que dá '+Math.round(g.metaProRata)+' de meta esperada até agora. OBSERVAÇÃO: este número tende a ficar abaixo da realidade, porque reuniões que aconteceram nos últimos dias e ainda não foram julgadas ficam em A Validar e não entram aqui. Para essa leitura corrigida, veja o card Atingimento pro rata ao lado.')+'</div><div class="val ph-num">'+pct(g.validados,g.metaProRata)+'%</div><div class="sub2">'+g.validados+' válidas / pro rata '+Math.round(g.metaProRata)+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Atingimento pro rata'+infoIcon('Mesmo cálculo do Atingimento até hoje, mas corrigindo o atraso de validação. FÓRMULA: (Validados + 0,85 × A Validar que JÁ ACONTECERAM) ÷ Meta pro-rata. Hoje são '+g.validados+' validadas + 85% de '+g.aValidarPassado+' reuniões já realizadas e pendentes de julgamento = '+g.realizadoEstimado.toFixed(1)+'. IMPORTANTE: só entram as reuniões com data ATÉ HOJE. As que estão agendadas para os próximos dias ficam de fora, porque ainda não foram realizadas — não faria sentido creditar trabalho que ainda não aconteceu no desempenho até agora. Os 85% são uma taxa de efetividade esperada, fixa no sistema (a taxa real histórica do time está em torno de 90%).')+'</div><div class="val ph-num">'+pct(g.realizadoEstimado,g.metaProRata)+'%</div><div class="sub2">'+g.realizadoEstimado.toFixed(1)+' est. / pro rata '+Math.round(g.metaProRata)+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Atingimento projetado (fim período)'+infoIcon('Projeta COMO O PERÍODO VAI FECHAR se o ritmo atual for mantido. FÓRMULA: [Validados + 0,85 × (A Validar + Média por dia × dias úteis restantes)] ÷ Meta CHEIA do período. Soma três coisas: (1) o que já está validado ('+g.validados+'); (2) 85% de TODO o backlog A Validar ('+g.aValidar+'), aqui incluindo também as reuniões ainda por acontecer; (3) 85% do volume novo esperado, ou seja, as reuniões que ainda serão agendadas nos '+g.diasRestantes+' dias úteis restantes, estimadas em '+g.mediaPorDia+' por dia (o card Média por dia). Diferente dos dois cards ao lado, este compara com a meta CHEIA do período, não com a pro-rata, porque projeta o mês inteiro.')+'</div><div class="val ph-num">'+pct(g.projecao,g.meta)+'%</div><div class="sub2">projeção '+g.projecao+' / meta '+g.meta+'</div></div>';
 h += '</div>';
 
 h += '<div class="ph-section"><h3>Agendamentos feitos no período'+infoIcon('Quantos negócios ENTRARAM na etapa Agendado dentro do período selecionado — o mesmo critério do relatório nativo do HubSpot (coluna "Date entered Agendado"). Independente de quando o lead foi criado ou da data marcada para a reunião em si: conta pela data em que o BDR efetivamente fez o agendamento. Validados/A validar/Não válidos aqui refletem o status atual dessas reuniões, mesmo que a reunião ainda vá acontecer depois do fim do período.')+'</h3><div class="desc">Data em que o agendamento foi realizado (não a data da reunião) &middot; '+toISO(g.range.start)+' a '+toISO(new Date(g.range.end-1))+'</div>';
@@ -320,7 +366,7 @@ h += '<div class="ph-card"><div class="lbl">A validar</div><div class="val ph-nu
 h += '<div class="ph-card"><div class="lbl">Não válidos</div><div class="val ph-num" style="color:var(--bad)">'+g.bookingNaoValidos+'</div><div class="sub2">'+pct(g.bookingNaoValidos,g.bookingTotal)+'%</div></div>';
 h += '</div></div>';
 
-h += '<div class="ph-section"><h3>Composição do volume'+infoIcon('Todo agendamento cai em uma de três categorias: Validado (reunião aconteceu de fato), A validar (ainda sem retorno confirmado) ou Não válido (não rolou / não é fit).')+'</h3><div class="desc">Total = Validados + A Validar + Não Válidos &middot; '+toISO(g.range.start)+' a '+toISO(new Date(g.range.end-1))+'</div>';
+h += '<div class="ph-section"><h3>Composição do volume'+infoIcon('Todo agendamento cai em uma de três categorias: Validado (reunião aconteceu de fato), A validar (ainda sem retorno confirmado) ou Não válido (não rolou / não é fit). Deals já em etapa Perdido ou Reagendamento não entram aqui — já têm destino definido, não estão pendentes de julgamento de efetividade.')+'</h3><div class="desc">Total = Validados + A Validar + Não Válidos &middot; '+toISO(g.range.start)+' a '+toISO(new Date(g.range.end-1))+'</div>';
 h += '<div class="ph-grid" style="grid-template-columns:repeat(4,1fr)">';
 h += '<div class="ph-card"><div class="lbl">Volume total</div><div class="val ph-num">'+g.total+'</div></div>';
 h += '<div class="ph-card"><div class="lbl">Validados</div><div class="val ph-num" style="color:var(--accent)">'+g.validados+'</div><div class="sub2">'+pct(g.validados,g.total)+'%</div></div>';
@@ -349,19 +395,21 @@ if (Math.max(m,r) > maxMeta) maxMeta = Math.max(m,r);
 });
 
 h += '<div class="ph-cols2">';
-h += '<div class="ph-section"><h3>Agendamentos por vendedor'+infoIcon('Total de reuniões marcadas por vendedor no período, com a proporção entre Validados, A validar e Não válidos. Passe o mouse em cima de uma barra para ver os números.')+'</h3><div class="desc">Validados / A validar / Não válidos</div><div class="ph-bars">';
+h += '<div class="ph-section"><h3>Agendamentos por vendedor'+infoIcon('Total de reuniões marcadas por vendedor no período, com a proporção entre Validados, A validar e Não válidos. "Proj." é a projeção de fechamento de cada vendedor no ritmo atual dele (mesma lógica do card "Atingimento projetado" do time, aplicada só aos deals dessa pessoa). Passe o mouse em cima de uma barra para ver os números.')+'</h3><div class="desc">Validados / A validar / Não válidos</div><div class="ph-bars">';
 g.bdrs.forEach(function(n){
 var iv = g.inPeriod.filter(function(d){return d.bdr===n;});
 var v = iv.filter(function(d){return d.reuniaoEfetiva==='Sim';}).length;
 var nv = iv.filter(function(d){return d.reuniaoEfetiva==='Não';}).length;
 var av = iv.length - v - nv;
 var tot = iv.length;
+var ritmoBdr = tot / g.diasDecorridos;
+var projBdr = Math.round(v + 0.85*(av + ritmoBdr*g.diasRestantes));
 var hpx = Math.round((tot/maxAg)*130);
-h += '<div class="ph-bar-col" title="'+esc(n)+' — Validados: '+v+' · A validar: '+av+' · Não válidos: '+nv+' · Total: '+tot+'"><div class="ph-bar-val">'+tot+'</div><div class="ph-bar-stack" style="height:'+hpx+'px">';
+h += '<div class="ph-bar-col" title="'+esc(n)+' — Validados: '+v+' · A validar: '+av+' · Não válidos: '+nv+' · Total: '+tot+' · Projeção: '+projBdr+'"><div class="ph-bar-val">'+tot+'</div><div class="ph-bar-stack" style="height:'+hpx+'px">';
 if (v>0) h += '<div style="height:'+Math.round((v/Math.max(tot,1))*100)+'%;background:var(--accent)"></div>';
 if (av>0) h += '<div style="height:'+Math.round((av/Math.max(tot,1))*100)+'%;background:var(--warn)"></div>';
 if (nv>0) h += '<div style="height:'+Math.round((nv/Math.max(tot,1))*100)+'%;background:var(--bad)"></div>';
-h += '</div><div class="ph-bar-lbl">'+n.split(' ')[0]+'</div></div>';
+h += '</div><div class="ph-bar-lbl">'+n.split(' ')[0]+'</div><div class="ph-bar-proj" style="font-size:.65rem;color:var(--text2)">proj. '+projBdr+'</div></div>';
 });
 h += '</div></div>';
 
