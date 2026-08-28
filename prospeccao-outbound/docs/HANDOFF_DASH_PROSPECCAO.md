@@ -8,7 +8,7 @@ Documento de continuidade para retomar o trabalho no painel de gestão do Outbou
 https://script.google.com/a/macros/gabriel.com.br/s/AKfycbxcQCd3evfVsX0leS_7ehTpIlaZ2AnV8DLjejaYkqy3zTwd2d8sg-yUivlYQp6qW23EAA/exec
 ```
 
-Este link **não muda** entre implantações — cada nova versão é publicada como "Nova versão" na mesma implantação existente. Versão atual: **Versão 16** (24/08/2026).
+Este link **não muda** entre implantações — cada nova versão é publicada como "Nova versão" na mesma implantação existente. Versão atual: **Versão 17** (27/08/2026).
 
 Time que usa o painel: Caio Louback, João Pedro Modé, Pedro Porto, Roberta Lobasso (BDRs de pré-vendas).
 

@@ -38,8 +38,33 @@ Rodrigo pediu para replicar no Outbound o filtro de Cidade que já existia na da
 - Impacto varia por aba (as métricas de reunião dependem de `data_da_reuniao`, e boa parte dos descartados está em Validação/Prospecção), mas o efeito no filtro novo é direto: **BH e Outros ficam vazios enquanto o `sdr` não for preenchido**.
 - Caminhos possíveis, não aplicados por serem decisão de Rodrigo: (a) preencher `sdr` nos deals no HubSpot; (b) fallback no `Codigo.gs` para `hubspot_owner_id` quando `sdr` estiver vazio — recuperaria 96,3% e o mapa de ids já existe.
 
+### Correção do card "Atingimento até hoje" → "Atingimento" (oficial)
+- Rodrigo apontou olhando a produção: o card estava dividindo pela **meta pro-rata**, sendo que o card ao lado já é justamente a leitura pro-rata. O atingimento principal tem de ser o **oficial**.
+- Antes: `pct(g.validados, g.metaProRata)` — rótulo "Atingimento até hoje", rodapé "82 válidas / pro rata 127" = **65%**.
+- Depois: `pct(g.validados, g.meta)` — rótulo "Atingimento", rodapé "82 válidas / meta 140" = **59%**.
+- Numerador **não** mudou: continua só `validados` (resultado real, sem estimativa). Só o denominador passou de pro-rata para meta cheia.
+- Os outros dois cards ficaram intactos: "Atingimento pro rata" (88,8 est. ÷ 127 = 70%) e "Atingimento projetado (fim período)" (111 ÷ 140 = 79%). A tooltip do card novo foi reescrita para dizer explicitamente que este é o número de cobrança de meta e que os dois ao lado são as leituras ajustadas.
+- **Atenção ao publicar:** o número cai de 65% para 59% na visão do time. Não é piora de resultado, é troca de denominador.
+
+### Espelho do repo estava ATRÁS da produção — confirmado e medido
+- Ao ir publicar o filtro, descobri que a produção **já rodava** as mudanças que estavam apenas como "não commitadas" no working tree local (dias úteis, exclusão de Perdido/Reagendamento, e os três cards de atingimento). Ou seja: alguém publicou sem commitar, e o repo é que estava desatualizado — não o contrário.
+- Diff real medido linha a linha (hash djb2 de cada linha, comparação feita dentro da própria página do editor para não trafegar o fonte): produção 756 linhas × baseline local 756 linhas, **apenas 3 linhas divergentes** — 342 e 371 (texto de tooltip) e 385 (`proj.` minúsculo em produção vs `Proj.` no local). Tudo cosmético.
+- Consequência prática: **publicar sobrescrevendo o arquivo inteiro apagaria essas 3 linhas de produção.** A publicação tem de ser por substituição ancorada dos trechos alterados, como já mandava a regra do projeto.
+- Técnica útil para reusar: ler a fonte real via `monaco.editor.getModels()` no editor do Apps Script (`model/2` = Codigo.gs, `model/3` = Index.html) e comparar por hash de linha, enviando os hashes locais **para dentro** da página e devolvendo só os números das linhas diferentes — evita tanto o truncamento da saída quanto o bloqueio "[BLOCKED: Cookie/query string data]" que atinge linhas longas com URL/token.
+
+### Implantado — Versão 17 (27/08/2026, 22:47 BRT)
+- Publicado por substituição ancorada no editor (5 âncoras, todas com exatamente 1 ocorrência, validadas antes em modo seco): STATE, bloco `mapCidade_`/`filterByCidade`/`filterDeals`, seletor de Cidade, listener e a linha do card de atingimento. Arquivo foi de 756 → 783 linhas. `Codigo.gs` não foi tocado (247 linhas antes e depois).
+- Verificado **no app publicado**, não no diálogo de confirmação: filtro "Cidade / Todas as cidades" presente na barra, card **Atingimento 59% (82 válidas / meta 140)**, e os dois vizinhos intactos — Atingimento pro rata 70% e Atingimento projetado 79%.
+- Link não mudou (mesma implantação): `.../AKfycbx...Qp6qW23EAA/exec`.
+
+### Espelho sincronizado — resta 1 linha de divergência conhecida
+- Depois da publicação, o `Index.html` do repo foi alinhado com a produção: aplicadas as 2 diferenças cosméticas que só existiam no ar (travessão → hífen em "não entram aqui - já têm", e `"Proj."` → `"proj."` na tooltip de Agendamentos por vendedor).
+- Verificação por hash linha a linha: **782 de 783 linhas idênticas**.
+- **Linha 412 continua divergente e não foi resolvida**: é a linha do rótulo `ph-bar-proj` ("proj. " abaixo de cada barra). Produção tem 141 caracteres, o repo tem 161 — 20 a mais, num trecho de atributo `style`. O conteúdo exato da produção não pôde ser lido: o filtro do harness devolve `[BLOCKED: Cookie/query string data]` justamente no pedaço do meio dessa linha, em qualquer fatiamento. Não foi chutado.
+- Consequência prática: nenhuma hoje (é estilo de um rótulo). Mas **não usar a linha 412 como âncora** em edições futuras, e se algum dia essa linha precisar mudar, ler o valor real direto no editor primeiro.
+
 ### Pendências
-- [ ] Publicar no Apps Script (usar `Get-Content -Raw -Encoding UTF8` antes do `Set-Clipboard` — ver achado de encoding de 09/08).
+- [x] Publicar no Apps Script — feito, Versão 17 em 27/08/2026 22:47.
 - [ ] Decidir com Rodrigo se a meta deve ser fatiada por cidade nos cards de Atingimento (hoje não é, igual ao filtro de Origem).
 - [ ] **Resolver o `sdr` vazio em 1.160 deals (45,5% do pipeline)** — sem isso a opção BH do filtro fica permanentemente em zero. Ver achado colateral acima.
 
