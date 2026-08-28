@@ -368,6 +368,11 @@
   .table-row:hover { background: var(--surface2); }
   .grid-rank { grid-template-columns: 32px 2fr 80px 80px 80px 80px 90px; }
   .grid-rank-mtd { grid-template-columns: 36px 2fr 80px 90px 110px 100px; }
+  .grid-rank-mtd7 { grid-template-columns: 36px 2fr 72px 84px 104px 100px 100px; }
+  /* Tooltip no cabecalho da tabela: abre pra BAIXO, senao o overflow:hidden do .table-card corta */
+  .table-head .info-tip { opacity: 0.75; }
+  .table-head .info-tip .info-tip-content { bottom: auto; top: 150%; width: 230px; }
+  .table-head .info-tip.tip-right .info-tip-content { left: auto; right: 0; transform: none; }
 
   .rank-num { font-size: 13px; color: var(--muted); font-weight: 700; font-family: var(--mono); }
   .rank-1 .rank-num { color: var(--accent); text-shadow: 0 0 8px rgba(0,255,65,0.5); }
@@ -2202,19 +2207,32 @@ function renderRanking() {
     return { cls: cls, label: p.toFixed(1) + '%' };
   };
 
+  // Mes corrente: mostra as DUAS colunas de atingimento (pro rata + meta cheia), igual a dash de Outbound.
+  // Mes finalizado: pro rata == meta cheia (o mes acabou), entao fica so uma coluna.
+  const isCurr = ating.isMesCorrente;
+  const gridCls = isCurr ? 'grid-rank-mtd7' : 'grid-rank-mtd';
+
+  // Ating. Meta = Realizado / Meta CHEIA do mes (sem ajuste por dias decorridos)
+  const atingVsMetaCheia = function(r) {
+    const m = Number(r && r.metaTime) || 0;
+    return m > 0 ? (Number(r.realizado) || 0) / m : null;
+  };
+
   const totalRow = ating.total || {};
   const totalBadge = badgeForPct(totalRow.atingimentoProRata);
+  const totalMetaBadge = badgeForPct(atingVsMetaCheia(totalRow));
 
   const rows = ranked.map(function(r, i) {
     const meta_       = Math.ceil(r.metaTime || 0);
     const metaProRata = Math.ceil(r.metaProRata || 0);
     const realizado   = Math.ceil(r.realizado || 0);
     const atingBadge  = badgeForPct(r.atingimentoProRata);
+    const atingMetaBadge = badgeForPct(atingVsMetaCheia(r));
 
     const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
     const medal = String(i + 1).padStart(2, '0');
     return `
-      <div class="table-row grid-rank-mtd ${rankClass}">
+      <div class="table-row ${gridCls} ${rankClass}">
         <div class="rank-num">${medal}</div>
         <div class="seller-cell">
           <div class="avatar" style="background:${colorFor(r.vendedor)}22;color:${colorFor(r.vendedor)}">${initials(r.vendedor)}</div>
@@ -2226,38 +2244,47 @@ function renderRanking() {
         <div style="text-align:center;color:var(--muted)">${metaProRata}</div>
         <div style="text-align:center;font-weight:600">${realizado}</div>
         <div style="text-align:center"><span class="metric-badge ${atingBadge.cls}">${atingBadge.label}</span></div>
+        ${isCurr ? `<div style="text-align:center"><span class="metric-badge ${atingMetaBadge.cls}">${atingMetaBadge.label}</span></div>` : ''}
       </div>`;
   }).join('');
 
   // Disclaimer + labels variam conforme mês corrente vs finalizado
-  const isCurr = ating.isMesCorrente;
   const headerInfo = isCurr
     ? `<strong style="color:var(--text)">Mês corrente</strong> (${meta.startMonth} a ${meta.endMonth}) · Realizado MTD com pro-rata projetado.<br>Fonte: <strong style="color:var(--text)">Compilado de Passes</strong> (cols B/C/D/E)`
     : `<strong style="color:var(--accent)">Mês finalizado:</strong> ${ating.mesIni} a ${ating.mesFim} · Atingimento = Realizado validado ÷ Meta Total.<br>Fonte: <strong style="color:var(--text)">Neo Crescimento - PV</strong> + <strong style="color:var(--text)">Meta Pré vendedor</strong>`;
   const colProRataLabel = isCurr ? 'Pro Rata' : 'Meta Total';
   const colRealizadoLabel = isCurr ? 'Realizado MTD' : 'Realizado';
+  const colAtingLabel = isCurr ? 'Ating. Pro Rata' : 'Atingimento';
+  const tip = function(txt, right) {
+    return `<span class="info-tip${right ? ' tip-right' : ''}">i<span class="info-tip-content">${txt}</span></span>`;
+  };
+  const legendaAting = isCurr
+    ? ' · Ating. Pro Rata = no ritmo esperado até hoje · Ating. Meta = do total do mês'
+    : '';
 
   document.getElementById('tab-content').innerHTML = `
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6;">
-      ${headerInfo}
+      ${headerInfo}${legendaAting}
     </div>
     <div class="table-card">
-      <div class="table-head grid-rank-mtd">
+      <div class="table-head ${gridCls}">
         <div></div>
         <div>Vendedor</div>
         <div style="text-align:center">Meta</div>
         <div style="text-align:center">${colProRataLabel}</div>
         <div style="text-align:center">${colRealizadoLabel}</div>
-        <div style="text-align:center">Atingimento</div>
+        <div style="text-align:center">${colAtingLabel}${isCurr ? tip('Realizado ÷ Meta Pro Rata (meta ajustada pelos dias já decorridos). 100% = está no ritmo até hoje.', true) : ''}</div>
+        ${isCurr ? `<div style="text-align:center">Ating. Meta${tip('Realizado ÷ Meta CHEIA do mês, sem ajuste por dias decorridos. Quanto do mês inteiro já foi entregue.', true)}</div>` : ''}
       </div>
       ${rows || '<div class="table-row"><div></div><div style="color:var(--muted)">Sem vendedores.</div></div>'}
-      <div class="table-row grid-rank-mtd" style="background:var(--surface2);font-weight:600;">
+      <div class="table-row ${gridCls}" style="background:var(--surface2);font-weight:600;">
         <div></div>
         <div style="text-transform:uppercase;font-size:11px;letter-spacing:0.06em;color:var(--muted);">Total</div>
         <div style="text-align:center">${Math.ceil(totalRow.metaTime || 0)}</div>
         <div style="text-align:center">${Math.ceil(totalRow.metaProRata || 0)}</div>
         <div style="text-align:center">${Math.ceil(totalRow.realizado || 0)}</div>
         <div style="text-align:center"><span class="metric-badge ${totalBadge.cls}">${totalBadge.label}</span></div>
+        ${isCurr ? `<div style="text-align:center"><span class="metric-badge ${totalMetaBadge.cls}">${totalMetaBadge.label}</span></div>` : ''}
       </div>
     </div>`;
 }

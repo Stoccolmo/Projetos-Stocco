@@ -1,0 +1,32 @@
+// Coluna "Ating. Meta" no Ranking do Inbound — 10 substituicoes no Index.html
+// Cole no console do DevTools (F12) com a aba do Apps Script aberta em Index.html.
+// Nao salva sozinho: so edita o editor. Confira o resultado e salve pelo icone de salvar da UI.
+(function () {
+  var P = [
+    { n: 1, old: "  .grid-rank-mtd { grid-template-columns: 36px 2fr 80px 90px 110px 100px; }", nw: "  .grid-rank-mtd { grid-template-columns: 36px 2fr 80px 90px 110px 100px; }\n  .grid-rank-mtd7 { grid-template-columns: 36px 2fr 72px 84px 104px 100px 100px; }\n  /* Tooltip no cabecalho da tabela: abre pra BAIXO, senao o overflow:hidden do .table-card corta */\n  .table-head .info-tip { opacity: 0.75; }\n  .table-head .info-tip .info-tip-content { bottom: auto; top: 150%; width: 230px; }\n  .table-head .info-tip.tip-right .info-tip-content { left: auto; right: 0; transform: none; }" },
+    { n: 2, old: "  const totalRow = ating.total || {};\n  const totalBadge = badgeForPct(totalRow.atingimentoProRata);\n", nw: "  // Mes corrente: mostra as DUAS colunas de atingimento (pro rata + meta cheia), igual a dash de Outbound.\n  // Mes finalizado: pro rata == meta cheia (o mes acabou), entao fica so uma coluna.\n  const isCurr = ating.isMesCorrente;\n  const gridCls = isCurr ? 'grid-rank-mtd7' : 'grid-rank-mtd';\n\n  // Ating. Meta = Realizado / Meta CHEIA do mes (sem ajuste por dias decorridos)\n  const atingVsMetaCheia = function(r) {\n    const m = Number(r && r.metaTime) || 0;\n    return m > 0 ? (Number(r.realizado) || 0) / m : null;\n  };\n\n  const totalRow = ating.total || {};\n  const totalBadge = badgeForPct(totalRow.atingimentoProRata);\n  const totalMetaBadge = badgeForPct(atingVsMetaCheia(totalRow));\n" },
+    { n: 3, old: "    const atingBadge  = badgeForPct(r.atingimentoProRata);\n", nw: "    const atingBadge  = badgeForPct(r.atingimentoProRata);\n    const atingMetaBadge = badgeForPct(atingVsMetaCheia(r));\n" },
+    { n: 4, old: "      <div class=\"table-row grid-rank-mtd ${rankClass}\">", nw: "      <div class=\"table-row ${gridCls} ${rankClass}\">" },
+    { n: 5, old: "        <div style=\"text-align:center\"><span class=\"metric-badge ${atingBadge.cls}\">${atingBadge.label}</span></div>\n      </div>`;", nw: "        <div style=\"text-align:center\"><span class=\"metric-badge ${atingBadge.cls}\">${atingBadge.label}</span></div>\n        ${isCurr ? `<div style=\"text-align:center\"><span class=\"metric-badge ${atingMetaBadge.cls}\">${atingMetaBadge.label}</span></div>` : ''}\n      </div>`;" },
+    { n: 6, old: "  // Disclaimer + labels variam conforme mês corrente vs finalizado\n  const isCurr = ating.isMesCorrente;\n  const headerInfo = isCurr", nw: "  // Disclaimer + labels variam conforme mês corrente vs finalizado\n  const headerInfo = isCurr" },
+    { n: 7, old: "  const colProRataLabel = isCurr ? 'Pro Rata' : 'Meta Total';\n  const colRealizadoLabel = isCurr ? 'Realizado MTD' : 'Realizado';\n", nw: "  const colProRataLabel = isCurr ? 'Pro Rata' : 'Meta Total';\n  const colRealizadoLabel = isCurr ? 'Realizado MTD' : 'Realizado';\n  const colAtingLabel = isCurr ? 'Ating. Pro Rata' : 'Atingimento';\n  const tip = function(txt, right) {\n    return `<span class=\"info-tip${right ? ' tip-right' : ''}\">i<span class=\"info-tip-content\">${txt}</span></span>`;\n  };\n  const legendaAting = isCurr\n    ? ' · Ating. Pro Rata = no ritmo esperado até hoje · Ating. Meta = do total do mês'\n    : '';\n" },
+    { n: 8, old: "      ${headerInfo}\n    </div>\n    <div class=\"table-card\">\n      <div class=\"table-head grid-rank-mtd\">\n        <div></div>\n        <div>Vendedor</div>\n        <div style=\"text-align:center\">Meta</div>\n        <div style=\"text-align:center\">${colProRataLabel}</div>\n        <div style=\"text-align:center\">${colRealizadoLabel}</div>\n        <div style=\"text-align:center\">Atingimento</div>\n      </div>", nw: "      ${headerInfo}${legendaAting}\n    </div>\n    <div class=\"table-card\">\n      <div class=\"table-head ${gridCls}\">\n        <div></div>\n        <div>Vendedor</div>\n        <div style=\"text-align:center\">Meta</div>\n        <div style=\"text-align:center\">${colProRataLabel}</div>\n        <div style=\"text-align:center\">${colRealizadoLabel}</div>\n        <div style=\"text-align:center\">${colAtingLabel}${isCurr ? tip('Realizado ÷ Meta Pro Rata (meta ajustada pelos dias já decorridos). 100% = está no ritmo até hoje.', true) : ''}</div>\n        ${isCurr ? `<div style=\"text-align:center\">Ating. Meta${tip('Realizado ÷ Meta CHEIA do mês, sem ajuste por dias decorridos. Quanto do mês inteiro já foi entregue.', true)}</div>` : ''}\n      </div>" },
+    { n: 9, old: "      <div class=\"table-row grid-rank-mtd\" style=\"background:var(--surface2);font-weight:600;\">", nw: "      <div class=\"table-row ${gridCls}\" style=\"background:var(--surface2);font-weight:600;\">" },
+    { n: 10, old: "        <div style=\"text-align:center\"><span class=\"metric-badge ${totalBadge.cls}\">${totalBadge.label}</span></div>\n      </div>\n    </div>`;\n}", nw: "        <div style=\"text-align:center\"><span class=\"metric-badge ${totalBadge.cls}\">${totalBadge.label}</span></div>\n        ${isCurr ? `<div style=\"text-align:center\"><span class=\"metric-badge ${totalMetaBadge.cls}\">${totalMetaBadge.label}</span></div>` : ''}\n      </div>\n    </div>`;\n}" }
+  ];
+  var ms = (window.monaco && monaco.editor.getModels()) || [];
+  var c = ms.filter(function (m) { return m.getValue().indexOf("function renderRanking") !== -1; });
+  if (c.length !== 1) return "ERRO: achei " + c.length + " modelos com renderRanking. Abra Index.html no editor.";
+  var m = c[0];
+  var ruim = P.filter(function (p) { return m.findMatches(p.old, false, false, true, null, false).length !== 1; });
+  if (ruim.length) return "ABORTADO, nada foi alterado. Hunks que nao casaram exatamente 1x: " + ruim.map(function (p) { return p.n; }).join(", ");
+  P.forEach(function (p) {
+    var f = m.findMatches(p.old, false, false, true, null, false);
+    m.pushEditOperations([], [{ range: f[0].range, text: p.nw }], function () { return null; });
+  });
+  var t = m.getValue();
+  return "OK: " + P.length + " hunks aplicados. Linhas: " + m.getLineCount() +
+    " | grid-rank-mtd7: " + (t.split("grid-rank-mtd7").length - 1) +
+    " | Ating. Meta: " + (t.split("Ating. Meta").length - 1) +
+    ". Agora salve pelo icone de salvar da UI (nao use Ctrl+S).";
+})();
