@@ -63,10 +63,31 @@ Rodrigo pediu para replicar no Outbound o filtro de Cidade que já existia na da
 - **Linha 412 continua divergente e não foi resolvida**: é a linha do rótulo `ph-bar-proj` ("proj. " abaixo de cada barra). Produção tem 141 caracteres, o repo tem 161 — 20 a mais, num trecho de atributo `style`. O conteúdo exato da produção não pôde ser lido: o filtro do harness devolve `[BLOCKED: Cookie/query string data]` justamente no pedaço do meio dessa linha, em qualquer fatiamento. Não foi chutado.
 - Consequência prática: nenhuma hoje (é estilo de um rótulo). Mas **não usar a linha 412 como âncora** em edições futuras, e se algum dia essa linha precisar mudar, ler o valor real direto no editor primeiro.
 
+### ⚠️ CORREÇÃO (27/08/2026, noite) — o achado do `sdr` vazio acima está EXAGERADO e a conclusão sobre o BH está ERRADA
+
+Rodrigo questionou: "não estou entendendo como `sdr` está vazio, deal no pipeline de outbound com executivo de pré-vendas vazio?". A dúvida procedia. Reinvestigando:
+
+**O que estava errado**
+- Afirmei que "BH fica zerado" e que "45,5% do pipeline está invisível na dash". **As duas coisas são falsas.**
+- Origem do erro: montei o harness de teste buscando **apenas** o pipeline Outbound (`905667466`). Mas o `Codigo.gs` monta o universo com **duas** consultas — `fetchOutboundDeals_()` **e** `fetchGraduatedDeals_()`, que traz os negócios já migrados para o pipeline **Vendas** (`79388826`). Como os negócios de MG com reunião estão justamente entre os graduados, meu harness não tinha nenhum, e eu li o zero como se fosse comportamento da dash.
+
+**O que os dados realmente dizem**
+- `sdr` = propriedade "Executivo de Pré-Vendas", um **dropdown** (enumeration/select), não um campo de proprietário. Fica vazio enquanto o negócio não é trabalhado.
+- Preenchimento é fortemente correlacionado com a etapa: Validação 10% · Prospecção 59% · Conectado 26% · Qualificação 26% · **Agendado 100%** · **Reagendamento 100%** · Perdido 76%.
+- **Todo negócio com `data_da_reuniao` tem `sdr` preenchido** (0% de falha). E `fetchGraduatedDeals_()` já filtra `sdr IN owners` por construção.
+- Ou seja: os 1.160 sem `sdr` são majoritariamente **registros de prospecção ainda não trabalhados**, parados em Validação. Não é dado perdido — é dado que ainda não existe. As métricas de reunião da dash não são afetadas.
+- **BH funciona.** Universo real que a dash enxerga: SP 738 (109 c/ reunião) · RJ 871 (131) · **BH 12 (12)** · Outros 2 (2). Verificado na produção com o filtro em BH: Total no período **12**, distribuídos entre Caio 3, João 4, Roberta 5.
+
+**O que continua verdade**
+- O `sdr` vazio em etapas iniciais faz esses registros não aparecerem nas abas que contam entrada de etapa (Funil vs Meta, Cohort). Isso é real, mas é bem menor e bem menos grave do que "45,5% invisível", e pode ser comportamento desejado — negócio sem dono não deveria ser creditado a ninguém.
+- Se um dia se quiser contar prospecção crua por praça, aí sim seria preciso o fallback para `hubspot_owner_id`. Não é urgente e não bloqueia nada hoje.
+
+**Lição de método:** antes de declarar que um número está errado na dash, reproduzir o **universo completo** que o backend monta — todas as consultas, não só a principal. O harness parcial produziu um zero convincente e falso.
+
 ### Pendências
 - [x] Publicar no Apps Script — feito, Versão 17 em 27/08/2026 22:47.
 - [ ] Decidir com Rodrigo se a meta deve ser fatiada por cidade nos cards de Atingimento (hoje não é, igual ao filtro de Origem).
-- [ ] **Resolver o `sdr` vazio em 1.160 deals (45,5% do pipeline)** — sem isso a opção BH do filtro fica permanentemente em zero. Ver achado colateral acima.
+- [ ] ~~Resolver o `sdr` vazio~~ — **cancelada**: ver correção acima. BH funciona (12 reuniões) e as métricas de reunião não são afetadas. Sobra apenas a questão menor de prospecção crua por praça nas abas de Funil/Cohort.
 
 ## 09/08/2026 — Botão de atualização manual e rotas sem agrupamento
 
