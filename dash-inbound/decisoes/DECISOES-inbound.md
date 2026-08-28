@@ -380,3 +380,7 @@ Implantação: **Versão 20**, mesma implantação de sempre — o código `AKfy
 **Pegadinha do Chrome, pra próxima vez:** ao colar código no console do DevTools pela primeira vez, o Chrome bloqueia o Ctrl+V e exige que você **digite** `allow pasting` + Enter antes. O paste falha silencioso — parece que "não funcionou" sem erro nenhum.
 
 **Pendência nova:** o espelho local (`scripts/Index.html`) ainda difere da produção nos ~152 chars que já divergiam antes deste patch (algo mudado em produção após 25/08 que nunca foi versionado). Vale baixar o `Index.html` de produção e ressincronizar o espelho.
+
+**Implantação verificada (não só o toast):** reabri "Gerenciar implantações" depois de publicar e a implantação ativa aponta mesmo para *Versão 20 em 27/08/2026, 18:42*, com o código `AKfycbyI171A-...` inalterado. Checagem feita porque o handoff do Outbound documenta um bug em que selecionar "Nova versão" e depois clicar na Descrição faz o combobox reverter em silêncio — foi exatamente a ordem que usei, mas o print anterior ao clique em Implantar já mostrava "Nova versão" selecionada e a reabertura confirmou.
+
+Efeito colateral cosmético: a Descrição vira o **nome** da implantação na lista "Ativo" — ela deixou de se chamar "Sem título" e agora aparece como "Ranking: coluna Ating. Meta...".
