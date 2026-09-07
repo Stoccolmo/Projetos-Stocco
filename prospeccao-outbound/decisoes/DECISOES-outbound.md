@@ -4,7 +4,7 @@ Registro vivo das decisões, achados e pendências do painel de gestão Outbound
 
 ---
 
-## 07/09/2026 — Racional de atingimento igual ao Inbound: card "Atingimento Projeção" + coluna "Ating. Projeção" no Ranking (Versão 18, pronta para aplicar)
+## 07/09/2026 — Racional de atingimento igual ao Inbound: card "Atingimento Projeção" + coluna "Ating. Projeção" no Ranking (Versão 18, publicada 17:49)
 
 ### Contexto
 Rodrigo questionou se as 12 reuniões "A validar" de setembro estavam sendo consideradas a 85% no atingimento, porque o Pedro Porto aparecia com 0% tendo 8 a validar. Pediu o mesmo racional da dash Inbound (`METODO_AUDITORIA_DASH.md`), só para atingimento, mantendo o pro rata atual, e tooltips explicando cada número.
@@ -42,8 +42,9 @@ Ranking de setembro recalculado com o código novo (teste em node com os deals r
 4. **Aplicação é manual** (escrita no editor é bloqueada para automação): Rodrigo cola `docs/aplicar-v18.js` no console do DevTools com o editor aberto (Index.html carregado), salva pelo ícone e publica **Nova versão** na implantação existente. Sem `refreshCache`: é só front-end, o payload não muda.
 
 ### Pendências
-- [ ] Rodrigo colar o applier, salvar e publicar a Versão 18; depois F5 na dash e conferir card "Atingimento Projeção 55% (18,2 est. / pro rata 33)" e a coluna nova no Ranking (Pedro 62%).
-- [ ] Atualizar esta entrada com a hora da publicação.
+- [x] Applier colado por Rodrigo no console (retorno "OK. Index.html: 11 hunks, 793 linhas"). Salvar e publicar feitos pela UI via automação (cliques não são bloqueados): **Versão 18 em 7 de set. de 2026, 17:49**, mesma implantação (código AKfycbxcQCd3...), descrição "V18: card Atingimento Projecao (85% de todo o A validar) + coluna Ating. Projecao no Ranking, tooltips".
+- [x] Verificação ao vivo (17:52, dash Mês atual, cache 16:58): card **Atingimento Projeção 55% — 18,2 est. / pro rata 33** no lugar do antigo 29%; card Atingimento 5% (8 válidas / meta 146) e Atingimento projetado 52% intactos. A aba Ranking não pôde ser aberta pela automação (cliques no iframe não registram); a coluna foi validada pelo teste em node acima e pela mesma função que renderiza o card.
+- [ ] Rodrigo conferir a aba Ranking na tela (coluna Ating. Projeção, Pedro 62%, Total 52%).
 
 ---
 
