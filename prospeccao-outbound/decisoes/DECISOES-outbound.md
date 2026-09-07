@@ -4,6 +4,42 @@ Registro vivo das decisões, achados e pendências do painel de gestão Outbound
 
 ---
 
+## 07/09/2026 — Meta de setembro/2026 lançada (146)
+
+### Contexto
+Rodrigo mandou o print das metas de setembro do time Outbound e pediu para lançar na dash sem quebrar nada, só para acompanhar o atingimento do mês.
+
+### Onde a meta vive (não é no código)
+- A meta **não está no repo**: mora na Script Property `METAS_JSON` do projeto Apps Script (`1SqeoBSS-...`), chaveada por mês (`{"YYYY-MM": {nome: meta}}`). Ver HANDOFF, bug #6.
+- Nenhuma linha de `Codigo.gs` / `Index.html` foi alterada. O editor de código foi aberto só para rodar `refreshCache`; o projeto continua "Salvo no Google Drive" sem mudança de código e sem nova implantação.
+
+### O que foi feito
+1. Lido o valor atual de `METAS_JSON` (só `2026-07` e `2026-08`) e **acrescentada** a chave `2026-09`, preservando as anteriores:
+
+   | BDR | Meta set/26 |
+   |---|---|
+   | Caio Louback | 41 |
+   | João Pedro Modé | 13 |
+   | Pedro Porto | 46 |
+   | Roberta Lobasso | 46 |
+   | **Time (Prospecção)** | **146** |
+
+   A chave usa `João Pedro Modé` (com acento), igual a `BDR_OWNER_IDS` no `Codigo.gs` — o print vinha "Mode" sem acento; se fosse copiado literal a meta dele não casaria com o nome do owner.
+2. JSON validado antes de salvar (3 chaves, soma de setembro = 146) e relido após recarregar a página de configurações.
+3. Como `doGet()` lê `metas` do cache no Drive, rodei `refreshCache` pelo editor (16:52, 1.640 deals). Sem isso a dash ficaria em "meta 0" até o gatilho das 18h.
+
+### Verificação na dash publicada (Mês atual, 07/09 16:52)
+- Card Atingimento: **5% — 8 válidas / meta 146**; Atingimento pro rata 29% (9,7 est. / pro rata 33); Atingimento projetado 52% (projeção 76 / meta 146).
+- Gráfico "Atingimento da meta" por vendedor: 10% / 8% / 0% / 7% = 4/41, 1/13, 0/46, 3/46 — confirma que a meta individual está atribuída ao nome certo.
+- Não consegui abrir a aba Ranking pela automação (cliques dentro do iframe do Apps Script não registram pela extensão); a conferência acima foi feita pela Visão Geral.
+
+### Armadilhas anotadas para o próximo mês
+- Sempre **acrescentar** a chave do mês no `METAS_JSON`, nunca sobrescrever o objeto.
+- Depois de salvar a propriedade, rodar `refreshCache` (ou "Atualizar agora" na dash) — a meta só chega ao front pelo cache.
+- No editor do Apps Script, teclas de seta/Enter enviadas ao dropdown de função caem no código e marcam "Mudanças não salvas"; Executar salva o projeto, então desfazer (Ctrl+Z) antes de rodar. Aconteceu nesta sessão e foi revertido antes de executar.
+
+---
+
 ## 27/08/2026 — Filtro de cidade (paridade com a dash de Inbound)
 
 ### Contexto
