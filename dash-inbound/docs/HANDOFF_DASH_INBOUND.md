@@ -10,7 +10,9 @@ https://script.google.com/a/macros/gabriel.com.br/s/AKfycbyI171A-6I9qLfHpqc1kpuR
 
 Este link **não muda** entre implantações — cada nova versão é publicada como "Nova versão" na mesma implantação existente.
 
-Time que usa o painel (pré-vendedores Inbound, meta de agosto/2026): Eduarda de Barros, Giovanna Garcia, Pedro Dias, Vitória Miranda. Luiz Fernando Pellegrini e Roberta Lobasso saíram do time em agosto/2026 (meta zerada, histórico preservado).
+Time que usa o painel (pré-vendedores Inbound, meta de setembro/2026 = 431: Eduarda de Barros 104, Giovanna Garcia 140, Pedro Dias 104, Vitória Miranda 83). Luiz Fernando Pellegrini e Roberta Lobasso saíram do time em agosto/2026 (meta zerada, histórico preservado).
+
+**Rotina de virada de mês (meta):** editar só a coluna B (Meta Time) de "Compilado de Passes" **e** a coluna do mês em "Meta Pré vendedor" (matriz mês × vendedor — se ficar vazia, o mês quebra quando fechar; foi o bug de julho/2026). Nunca alterar meses anteriores. Registro de cada virada em `decisoes/DECISOES-inbound.md`.
 
 ## O que é
 
@@ -41,6 +43,7 @@ Dashboard de gestão do Pré-Vendas Inbound com abas de Visão Geral, Funil vs M
 
 ## Funcionalidades entregues (mais recentes primeiro)
 
+- **Meta de setembro/2026** lançada em "Compilado de Passes" e na coluna 01/09/2026 de "Meta Pré vendedor" (Eduarda 104, Giovanna 140, Pedro Dias 104, Vitória Miranda 83 — total 431), 07/09/2026.
 - **Meta de agosto/2026** lançada em "Compilado de Passes" preservando histórico (Eduarda 88, Giovanna 137, Pedro Dias 101, Vitória Miranda 81 — total 407); Luiz Fernando Pellegrini e Roberta Lobasso zerados (saíram do time).
 - **Filtro de Origem** em "Funil vs Meta" (Macro/Micro/Perfil/Tipo Estab., multi-select).
 - **Aba "Online vs Presencial"**: donut de `tipo_de_reuniao` (fonte: HubSpot Lead) com tooltip customizado que segue o cursor (`showChartTip_`/`hideChartTip_`, SVG puro), composição por pré-vendedor, reuniões por Executivo de Vendas, reuniões por Rota.

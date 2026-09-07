@@ -384,3 +384,35 @@ Implantação: **Versão 20**, mesma implantação de sempre — o código `AKfy
 **Implantação verificada (não só o toast):** reabri "Gerenciar implantações" depois de publicar e a implantação ativa aponta mesmo para *Versão 20 em 27/08/2026, 18:42*, com o código `AKfycbyI171A-...` inalterado. Checagem feita porque o handoff do Outbound documenta um bug em que selecionar "Nova versão" e depois clicar na Descrição faz o combobox reverter em silêncio — foi exatamente a ordem que usei, mas o print anterior ao clique em Implantar já mostrava "Nova versão" selecionada e a reabertura confirmou.
 
 Efeito colateral cosmético: a Descrição vira o **nome** da implantação na lista "Ativo" — ela deixou de se chamar "Sem título" e agora aparece como "Ranking: coluna Ating. Meta...".
+
+---
+
+## 07/09/2026 — Meta de setembro/2026 lançada (mesmas regras de julho e agosto)
+
+### Contexto
+Rodrigo mandou o print das metas de setembro do time de Qualificação (Inbound) e pediu para aplicar seguindo exatamente as regras dos meses anteriores.
+
+### O que foi feito
+Editado direto na planilha de produção `1YebaLxqGoS38A_MUk-B0P50g0JL7Srh3T85mGJ_KdPY` ("Planilha OFICIAL - Meta e Andamento"), pela interface do Sheets (Caixa de nome → célula → valor), sem tocar em fórmula nenhuma:
+
+1. **"Compilado de Passes", coluna B (Meta Time)** — única coluna manual da aba; o resto (Meta Pro Rata, Realizado, Dias Úteis…) já tinha rotacionado sozinho para setembro (`Z2 = FIMMÊS(HOJE();-1)+1`). A linha Total (B6) é fórmula e recalculou para 431.
+2. **"Meta Pré vendedor", coluna J (01/09/2026)** — matriz mês × vendedor que alimenta os meses fechados. A coluna já existia com o cabeçalho certo e estava vazia (mesma situação que gerou o bug de julho); preenchida agora para não abrir lacuna de histórico. A linha de total (11) é fórmula e também fechou em 431.
+
+| Pré-vendedor | Ago/26 | **Set/26** |
+|---|---|---|
+| Eduarda de Barros | 88 | **104** |
+| Giovanna Garcia | 137 | **140** |
+| Pedro Dias | 101 | **104** |
+| Vitória Miranda | 81 | **83** |
+| **Total (Qualificação)** | 407 | **431** |
+
+Regras mantidas dos meses anteriores: só os 4 pré-vendedores ativos recebem meta; Luiz Fernando Pellegrini, Roberta Lobasso, Pedro Porto, Caio Louback e João Pedro Mode continuam sem valor em setembro (histórico deles intacto); nenhuma célula de mês anterior foi alterada. Agosto (88/137/101/81 = 407) segue preservado na coluna I da matriz.
+
+### Verificação
+- Leitura de volta via `gviz` (CSV) das duas abas depois da edição: Compilado B2:B6 = 104/140/104/83/431; matriz J2:J11 = 104/140/—/104/—/—/—/—/83/431.
+- Painel oficial (`.../exec`) aberto após a edição para confirmar a meta do mês corrente = 431.
+
+### Observação (não mexi)
+O cabeçalho da aba "Meta Pré vendedor" tem um `#REF!` na coluna M (depois de 01/11/2026). Já estava assim antes desta sessão e não afeta o painel (`lerMetasMensais_` ignora cabeçalho que não é data). Fica registrado para não ser confundido com efeito desta edição.
+
+Sem mudança de código nesta sessão — nada a reimplantar no Apps Script (segue Versão 20).
