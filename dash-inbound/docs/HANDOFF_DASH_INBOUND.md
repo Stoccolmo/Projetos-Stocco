@@ -60,6 +60,8 @@ Dashboard de gestão do Pré-Vendas Inbound com abas de Visão Geral, Funil vs M
 
 ## Pendências em aberto
 
+0. **Unificar a definição de "reunião" na dash (aprovado por Rodrigo em 07/09/2026, a fazer):** Online vs Presencial migra de "leads que entraram em Agendado" (Base Leads col E) para passes pela data da reunião (Neo Crescimento + executivo do negócio); Funil ganha rótulo "Agendado (entrada na etapa)" + referência "Reuniões no mês"; rodapé com a definição em todas as abas. Contexto e números (488 × 441 em ago/26) em `decisoes/DECISOES-inbound.md`, 07/09.
+
 1. **Rotacionar/isolar o token do HubSpot em `Leads.gs`** (`LEADS_TOKEN_` hardcoded, compartilhado com outra automação chamada "Automação") — mover pra Script Properties + gerar Private App dedicado. Rodrigo pediu pra deixar em backlog e ser avisado quando for resolver.
 2. **Automatizar (ou documentar um processo recorrente) para atualizar o snapshot de MRR por Pré-vendedor** — hoje o Apps Script não tem como consultar o Redshift diretamente; a aba "MRR por Pré-vendedor" é escrita manualmente via `escreverSnapshotMRR()` (Utils.gs) com números calculados fora do Apps Script.
 3. Dimensões do prompt original ainda não endereçadas: reuniões por cidade/praça, conversão por PerfilDoContato/CategoriaEstabelecimento, ciclo de vendas por origem, LAV como métrica visível na dash oficial.
