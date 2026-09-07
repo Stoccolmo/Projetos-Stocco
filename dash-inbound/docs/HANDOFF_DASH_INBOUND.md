@@ -43,7 +43,7 @@ Dashboard de gestão do Pré-Vendas Inbound com abas de Visão Geral, Funil vs M
 
 ## Funcionalidades entregues (mais recentes primeiro)
 
-- **Versão 21 (pronta, aguardando colar `docs/aplicar-v21.js`)**: coluna "Ating. Projeção" no Ranking + 15 correções do teste de contradição lógica (Cohort lia o roster antigo e omitia Vitória; Média por dia útil real; badge do Líder "da meta pro rata"; tooltips com as fórmulas das cols K/M; MRR com data do snapshot; snapshot novo de 07/09 em `docs/mrr_snapshot_2026-09-07.tsv`, a colar na aba). Ver `decisoes/DECISOES-inbound.md` 07/09.
+- **Versão 21 (publicada 07/09/2026)**: coluna "Ating. Projeção" no Ranking + 15 correções do teste de contradição lógica (Cohort lia o roster antigo e omitia Vitória; Média por dia útil real; badge do Líder "da meta pro rata"; tooltips com as fórmulas das cols K/M; MRR com data do snapshot; snapshot novo de 07/09 em `docs/mrr_snapshot_2026-09-07.tsv`, a colar na aba). Ver `decisoes/DECISOES-inbound.md` 07/09.
 - **Meta de setembro/2026** lançada em "Compilado de Passes" e na coluna 01/09/2026 de "Meta Pré vendedor" (Eduarda 104, Giovanna 140, Pedro Dias 104, Vitória Miranda 83 — total 431), 07/09/2026.
 - **Meta de agosto/2026** lançada em "Compilado de Passes" preservando histórico (Eduarda 88, Giovanna 137, Pedro Dias 101, Vitória Miranda 81 — total 407); Luiz Fernando Pellegrini e Roberta Lobasso zerados (saíram do time).
 - **Filtro de Origem** em "Funil vs Meta" (Macro/Micro/Perfil/Tipo Estab., multi-select).
@@ -55,7 +55,7 @@ Dashboard de gestão do Pré-Vendas Inbound com abas de Visão Geral, Funil vs M
 
 ## Ambientes
 
-- **Produção**: planilha `1YebaLxqGoS38A_MUk-B0P50g0JL7Srh3T85mGJ_KdPY`, script `1gRnpQdbrQieE2QAkgnEXtTFAB1bdYR2d1CabNfk4Fg31iAXvD6ng3PWp`. Versão implantada atual: **Versão 20** (27/08/2026). **Versão 21** pronta em `docs/aplicar-v21.js` (07/09/2026), aguardando aplicação — `docs/build-v21.js` regenera espelho + applier.
+- **Produção**: planilha `1YebaLxqGoS38A_MUk-B0P50g0JL7Srh3T85mGJ_KdPY`, script `1gRnpQdbrQieE2QAkgnEXtTFAB1bdYR2d1CabNfk4Fg31iAXvD6ng3PWp`. Versão implantada atual: **Versão 21** (07/09/2026, 16:14) — hunks em `docs/aplicar-v21.js`, `docs/build-v21.js` regenera espelho + applier.
 - **Teste**: planilha `1JnxESNWy_CutGxR6ak_Ma8sG9QfJUc3xFqYbGDAgugE` ("[TESTE] Meta e Andamento - Cópia"), script `1WnKDxA7ZdHk3O-th1iKMrknFA5o3Y9IJKwWxN1c2LZqz_InwrFwbJUMs` ("Copy of Dashboard Pré-Vendas"). Fluxo de trabalho: validar mudanças no teste primeiro, depois replicar em produção (edição direta via automação de navegador é possível, mas instável — ver notas técnicas). **Importante**: ao portar mudanças de teste pra produção, sempre checar `Code.gs` e `Reader.gs` também, não só `Index.html` — já aconteceu de uma mudança de backend ficar só no teste enquanto o frontend já tinha ido pra produção, quebrando a feature (MRR não aparecia porque faltava `mrrPorPreVendedor` no DATA).
 
 ## Pendências em aberto
