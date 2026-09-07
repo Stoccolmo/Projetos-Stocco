@@ -14,11 +14,30 @@ function lerMetaInfo_(ss) {
   const endMonth   = sheet.getRange('AA2').getValue();
   const today      = sheet.getRange('AB2').getValue();
 
+  // Feriados (aba "Feriados", col A, dd/mm/yyyy ou Date) em ISO — o frontend usa pra
+  // contar dias úteis decorridos no card "Média por dia útil". Falha aqui não derruba o payload.
+  let feriados = [];
+  try {
+    const shF = ss.getSheetByName('Feriados');
+    if (shF && shF.getLastRow() >= 1) {
+      feriados = shF.getRange(1, 1, shF.getLastRow(), 1).getValues()
+        .map(function(r) { return r[0]; })
+        .filter(function(v) { return v !== '' && v !== null && v !== undefined; })
+        .map(function(v) {
+          if (v instanceof Date) return formatarDataISO_(v);
+          const m = String(v).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+          return m ? (m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0')) : null;
+        })
+        .filter(function(v) { return !!v; });
+    }
+  } catch (e) { Logger.log('lerMetaInfo_: feriados indisponíveis — ' + e.message); }
+
   return {
     startMonth: formatarDataISO_(startMonth),
     endMonth:   formatarDataISO_(endMonth),
     today:      formatarDataISO_(today),
-    diasUteisRestantes: null  // Reservado: implementar com aba Feriados se necessário
+    feriados:   feriados,
+    diasUteisRestantes: null  // Reservado
   };
 }
 
@@ -513,8 +532,8 @@ function agregarFunilLeads_(ss) {
     const perfilAgrupado = normDim(colO);
     const tipoEstab      = normDim(colP);
 
-    // Cidade (col J = estado). Mesma regra de agrupamento do agregarTipoReuniao_:
-    // agrupa por UF pra que SP inclua ABC/Guarulhos e BH inclua Nova Lima.
+    // Cidade (col J = estado). Mesma regra do agregarTipoReuniao_: agrupa por UF
+    // pra que SP inclua ABC/Guarulhos e BH inclua Nova Lima.
     const colJ = dados[i][7];   // Estado (UF)
     const uf = String(colJ == null ? '' : colJ).trim().toUpperCase();
     const cidade = (uf === 'SP') ? 'SP' : (uf === 'RJ') ? 'RJ' : (uf === 'MG') ? 'BH' : 'Outros';
@@ -562,7 +581,7 @@ function agregarFunilLeads_(ss) {
       safra[vendedor].agendado   += agendadoSafra;
       safra[vendedor].ganho      += ganhoSafra;
 
-      // Agrega no fatiado (chave = vendedor|origemMacro|origemMicro|perfilAgrupado|tipoEstab|cidade)
+      // Agrega no fatiado (chave = vendedor|origemMacro|origemMicro|perfilAgrupado|tipoEstab)
       const chave = vendedor + '|' + origemMacro + '|' + origemMicro + '|' + perfilAgrupado + '|' + tipoEstab + '|' + cidade;
       if (!fatiadoAgg[chave]) {
         fatiadoAgg[chave] = {
@@ -1087,9 +1106,7 @@ function agregarTipoReuniao_(ss) {
   // do HubSpot -- vem de QUEM e o Executivo de Vendas (col R). So os 4 executivos
   // abaixo fazem reuniao online; todo o resto (demais executivos, 'Sem executivo')
   // conta como presencial. 'Reuniao Agora' continua vindo do HubSpot (nao e nem um
-  // nem outro). Validado no HubSpot: dos 211 negocios com tipo_de_reuniao preenchido,
-  // 47 batem nas duas regras, 7 saiam de online p/ presencial e 2 o inverso -- a
-  // diferenca e justamente o campo manual que ficava desatualizado.
+  // nem outro).
   const EXECUTIVOS_ONLINE_ = ['Cayo Martins', 'João Junqueira', 'Costanza Turetta', 'Rafael Matiello'];
   const mapTipo = function(v, executivo) {
     const s = String(v || '').trim();
@@ -1155,7 +1172,7 @@ function lerMRRPorPreVendedor_(ss) {
   var last = sh.getLastRow();
   if (last < 2) return { agendamento: [], venda: [] };
   var values = sh.getRange(2, 1, last - 1, 6).getValues();
-  var agendamento = [], venda = [];
+  var agendamento = [], venda = [], snapshot = null;
   values.forEach(function(row) {
     var base = String(row[0] || '').trim();
     if (!base) return;
@@ -1163,11 +1180,17 @@ function lerMRRPorPreVendedor_(ss) {
     var mesRaw = row[2];
     var mes = mesRaw instanceof Date ? Utilities.formatDate(mesRaw, Session.getScriptTimeZone(), 'yyyy-MM') : String(mesRaw).slice(0, 7);
     var reunioes = row[3] === '' ? null : Number(row[3]);
-    var vendas = Number(row[4]);
-    var mrr = Number(row[5]);
+    var vendas = Number(row[4]) || 0;
+    var mrr = Number(row[5]) || 0;
     var item = { sdr: sdr, mes: mes, vendas: vendas, mrr: mrr };
     if (base === 'agendamento') { item.reunioes = reunioes; agendamento.push(item); }
     else if (base === 'venda') { venda.push(item); }
+    else if (base === 'snapshot') {
+      // Linha de controle: col C = data em que o snapshot foi tirado do Redshift.
+      snapshot = mesRaw instanceof Date
+        ? Utilities.formatDate(mesRaw, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+        : String(mesRaw).slice(0, 10);
+    }
   });
-  return { agendamento: agendamento, venda: venda };
+  return { agendamento: agendamento, venda: venda, snapshot: snapshot };
 }

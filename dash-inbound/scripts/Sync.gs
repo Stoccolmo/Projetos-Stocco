@@ -6,10 +6,10 @@
 // Mapeia para o layout de 12 colunas da "Passes Do Mês" → cohort/timeline funcionam sem alteração.
 
 // Rode UMA vez pra reagendar tudo pra 3x/dia.
-// Remove os acionadores antigos (os que pertencem a ESTE usuário) e cria:
+// Remove os acionadores antigos (os que pertencem a ESTE usuario) e cria:
 //   exportarLeadsParaSheets -> 07h, 11h, 17h  (pesado, roda antes)
 //   atualizarNeoEPasses     -> 08h, 12h, 18h  (neo + passes, nesta ordem)
-// Obs.: atHour(H) roda numa janela de ~1h a partir de H, não no minuto exato.
+// Obs.: atHour(H) roda numa janela de ~1h a partir de H, nao no minuto exato.
 function instalarTriggers3xDia() {
   var alvos = ['exportarLeadsParaSheets', 'sincronizarNeoCrescimento',
                'sincronizarPassesDoMes', 'atualizarNeoEPasses'];
@@ -96,21 +96,22 @@ function instalarTriggerSyncPassesDoMes() {
   ScriptApp.newTrigger('sincronizarPassesDoMes').timeBased().everyDays(1).atHour(6).create();
   Logger.log('Trigger diário instalado.');
 }
+
 // =============================================================
-// AGENDAMENTO 3x/DIA (08h / 12h / 18h) — instalado 25/08/2026
+// AGENDAMENTO 3x/DIA (08h / 12h / 18h) -- instalado 25/08/2026
 // =============================================================
-// Antes: 1x/dia (leads 05h, neo 06h, passes 06h) — e com um bug de ordem:
-// "Passes Do Mês" DERIVA de "Neo Crescimento - PV", mas os dois estavam
-// agendados pra mesma hora e o Apps Script não garante ordem dentro da
-// janela. Na prática o Passes rodava ~06:37 e o Neo ~06:49, ou seja, o
+// Antes: 1x/dia (leads 05h, neo 06h, passes 06h) -- e com um bug de ordem:
+// "Passes Do Mes" DERIVA de "Neo Crescimento - PV", mas os dois estavam
+// agendados pra mesma hora e o Apps Script nao garante ordem dentro da
+// janela. Na pratica o Passes rodava ~06:37 e o Neo ~06:49, ou seja, o
 // Passes vinha sendo montado com o Neo do dia ANTERIOR.
 //
-// Por isso os dois passam a rodar na MESMA execução, em sequência — é a
-// única forma de garantir a ordem. Juntos levam ~35s, folgado.
+// Por isso os dois passam a rodar na MESMA execucao, em sequencia -- e a
+// unica forma de garantir a ordem. Juntos levam ~35s, folgado.
 //
-// Já o exportarLeadsParaSheets fica SOZINHO e uma hora antes: ele levou
+// Ja o exportarLeadsParaSheets fica SOZINHO e uma hora antes: ele levou
 // 361s (6 min) em 25/08 e vem crescendo (230s no dia anterior). Encostar
-// os outros dois nele arriscaria estourar o limite de execução.
+// os outros dois nele arriscaria estourar o limite de execucao.
 function atualizarNeoEPasses() {
   sincronizarNeoCrescimento();
   sincronizarPassesDoMes();

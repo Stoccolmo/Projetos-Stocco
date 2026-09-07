@@ -369,6 +369,8 @@
   .grid-rank { grid-template-columns: 32px 2fr 80px 80px 80px 80px 90px; }
   .grid-rank-mtd { grid-template-columns: 36px 2fr 80px 90px 110px 100px; }
   .grid-rank-mtd7 { grid-template-columns: 36px 2fr 72px 84px 104px 100px 100px; }
+  .grid-rank-mtd8 { grid-template-columns: 36px 2fr 64px 76px 96px 96px 96px 96px; }
+  .rank-aviso { font-size: 11px; color: var(--amber); font-weight: 700; margin-top: 6px; }
   /* Tooltip no cabecalho da tabela: abre pra BAIXO, senao o overflow:hidden do .table-card corta */
   .table-head .info-tip { opacity: 0.75; }
   .table-head .info-tip .info-tip-content { bottom: auto; top: 150%; width: 230px; }
@@ -847,8 +849,10 @@
       <option value="all">Todos os pré-vendedores</option>
     </select>
 
-    <!-- Filtro de cidade — visível só na aba Online vs Presencial. Agrupa por UF
-         (estado) e não por nome de cidade: SP inclui ABC/Guarulhos, BH inclui Nova Lima. -->
+    <!-- Filtros de dimensão — visíveis só nas abas Evolução e Funil vs Meta.
+         Multi-select via tom-select (inicializado em popularSeletoresDimensao). -->
+    <!-- Filtro de cidade — visivel so na aba Online vs Presencial. Agrupa por UF
+         (estado), nao por nome de cidade: SP inclui ABC/Guarulhos, BH inclui Nova Lima. -->
     <div id="filters-cidade" style="display:none; gap:10px; align-items:center;">
       <span class="filter-label">Cidade:</span>
       <select class="filter-select" id="filter-cidade" onchange="renderAll()">
@@ -860,8 +864,6 @@
       </select>
     </div>
 
-    <!-- Filtros de dimensão — visíveis só nas abas Evolução e Funil vs Meta.
-         Multi-select via tom-select (inicializado em popularSeletoresDimensao). -->
     <div id="filters-dimensao" style="display:none; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="filter-label">Origem Macro:</span>
       <select class="filter-select filter-multi" id="filter-origem" multiple placeholder="Todas"></select>
@@ -1026,9 +1028,7 @@ function atualizarVisibilidadeFiltrosDimensao() {
     const visivel = (currentTab === 'evolucao' || currentTab === 'funil');
     div.style.display = visivel ? 'flex' : 'none';
   }
-  // Cidade: abas que realmente filtram por ela (Online vs Presencial usa items;
-  // Funil vs Meta usa fatiado). Fora dessas o seletor fica oculto — e como ele só
-  // é lido por essas duas, não há filtro "invisível" atuando nas outras abas.
+  // Cidade so faz sentido na aba Online vs Presencial (unica que usa items com cidade).
   const divCid = document.getElementById('filters-cidade');
   if (divCid) divCid.style.display = (currentTab === 'tiporeuniao' || currentTab === 'funil') ? 'flex' : 'none';
 }
@@ -1243,10 +1243,10 @@ function aplicarFiltrosDimensoes_(item, filtros) {
   return true;
 }
 
-// Filtro de cidade — aplicado SÓ no Funil vs Meta e na aba Online vs Presencial.
-// Deliberadamente fora de aplicarFiltrosDimensoes_: aquela função é compartilhada
-// com a Evolução, cujos itens (timeline) não carregam cidade — incluir lá zeraria
-// o gráfico de Evolução sem o filtro sequer estar visível na tela.
+// Filtro de cidade -- aplicado SO no Funil vs Meta e na aba Online vs Presencial.
+// Deliberadamente fora de aplicarFiltrosDimensoes_: aquela funcao e compartilhada
+// com a Evolucao, cujos itens (timeline) nao carregam cidade -- incluir la zeraria
+// o grafico de Evolucao sem o filtro sequer estar visivel na tela.
 function passaCidade_(item) {
   const el = document.getElementById('filter-cidade');
   const cd = el ? el.value : '';
@@ -1257,10 +1257,10 @@ function passaCidade_(item) {
 // True se algum filtro tem ao menos 1 valor selecionado.
 function temFiltrosDimensoesAtivos_() {
   const d = getFiltrosDimensoes_();
-  // Cidade entra aqui de propósito: recalcularAgregadosFunil_ tem um atalho que
-  // devolve o agregado pronto do backend quando NENHUM filtro está ativo — nesse
-  // caminho o fatiado (única fonte com cidade) nem é percorrido. Sem esta linha,
-  // escolher uma cidade não muda número nenhum no Funil.
+  // Cidade entra aqui de proposito: recalcularAgregadosFunil_ tem um atalho que
+  // devolve o agregado pronto do backend quando NENHUM filtro esta ativo -- nesse
+  // caminho o fatiado (unica fonte com cidade) nem e percorrido. Sem esta linha,
+  // escolher uma cidade nao muda numero nenhum no Funil.
   const cid = document.getElementById('filter-cidade');
   return d.origemMacro.length > 0 || d.origemMicro.length > 0
       || d.perfilAgrupado.length > 0 || d.tipoEstab.length > 0
@@ -1332,7 +1332,8 @@ function obterAtingimentoPorMes_() {
     const realizado = realizadoBy[v] || 0;
     // Mês finalizado: metaProRata == metaTime (não há mais "pro rata" — mês acabou)
     const metaProRata = metaTime;
-    const atingimentoProRata = metaTime > 0 ? realizado / metaTime : 0;
+    // null (não 0): sem meta não existe atingimento — badgeForPct/projPct mostram "—".
+    const atingimentoProRata = metaTime > 0 ? realizado / metaTime : null;
     return {
       vendedor: v,
       metaTime: metaTime,
@@ -1523,6 +1524,46 @@ function getTotalPorMetric(metric) {
     if (sv !== 'all' && i.vendedor !== sv) return acc;
     return acc + (i[metric] || 0);
   }, 0);
+}
+
+// Volume (métrica) do período atual só até HOJE — descarta reuniões com data futura.
+function getTotalPorMetricAteHoje_(metric) {
+  if (!DASHBOARD_DATA) return 0;
+  const today = (DASHBOARD_DATA.metaInfo || {}).today || '';
+  const sv = document.getElementById('filter-seller').value;
+  return filtrarMetasPorPeriodo().reduce(function(acc, i) {
+    if (sv !== 'all' && i.vendedor !== sv) return acc;
+    if (today && i.date > today) return acc;
+    return acc + (i[metric] || 0);
+  }, 0);
+}
+
+// Dias úteis decorridos no período selecionado (início → min(hoje, fim)).
+// seg–sex, menos metaInfo.feriados (ISO, aba "Feriados") quando o backend enviar a lista.
+function calcularDiasUteisDecorridos_() {
+  const meta = (DASHBOARD_DATA && DASHBOARD_DATA.metaInfo) || {};
+  const today = meta.today || '';
+  const p = document.getElementById('filter-periodo').value;
+  const f = (DASHBOARD_DATA && DASHBOARD_DATA.filters) || {};
+  let ini, fim;
+  if (p === 'today') { ini = today; fim = today; }
+  else if (p === 'week') { ini = obterInicioSemana(today); fim = today; }
+  else if (p === 'custom') { ini = f.cohortStart || meta.startMonth; fim = f.cohortEnd || meta.endMonth; }
+  else { ini = meta.startMonth; fim = meta.endMonth; }
+  if (!ini || !fim) return { dias: 0, comFeriados: false };
+  if (today && fim > today) fim = today;
+  const feriados = Array.isArray(meta.feriados) ? meta.feriados : [];
+  const setF = {};
+  feriados.forEach(function(d) { setF[d] = true; });
+  let dias = 0;
+  const d = new Date(ini + 'T00:00:00');
+  const end = new Date(fim + 'T00:00:00');
+  while (d <= end) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6 && !setF[formatarISO_(d)]) dias++;
+    d.setDate(d.getDate() + 1);
+  }
+  return { dias: dias, comFeriados: feriados.length > 0 };
 }
 
 // Aplica filtro de período + filtro de seller a metas.items.
@@ -1750,14 +1791,18 @@ function renderMRR() {
     html += '<div class="chart-card"><div class="chart-card-title">MRR por Pré-vendedor</div>';
     html += '<div class="chart-card-sub">Sem dados de MRR carregados.</div></div>';
   } else {
+    // Snapshot manual: sem a data na tela, um mês parcial (ex.: agosto lido em 10/08) parece mês fechado.
+    var snapTxt = dados.snapshot
+      ? 'snapshot manual (Redshift) de ' + fmtDataBR_(dados.snapshot) + ' — meses iguais ou posteriores a essa data estão incompletos'
+      : 'snapshot manual (Redshift) sem data registrada — não é ao vivo';
     html += tabelaHtml(
       'MRR — por mês de agendamento',
-      'Vendas geradas por reuniões agendadas em cada mês (SDR = pré-vendedor que fez a reunião) · Conversão = vendas / reuniões do período · snapshot manual (Redshift), não é ao vivo',
+      'Vendas geradas por reuniões agendadas em cada mês (SDR = pré-vendedor que fez a reunião) · Conversão = vendas / reuniões do período · ' + snapTxt,
       dados.agendamento, true
     );
     html += tabelaHtml(
       'MRR — por mês de venda (fechamento)',
-      'Vendas fechadas em cada mês, independente de quando a reunião foi agendada · snapshot manual (Redshift), não é ao vivo',
+      'Vendas fechadas em cada mês, independente de quando a reunião foi agendada · ' + snapTxt,
       dados.venda, false
     );
   }
@@ -1836,10 +1881,27 @@ const leaderMeta = leader ? (leaderAtingRow ? (leaderAtingRow.metaProRata || lea
 const topPct = leader && leaderMeta ? Math.round(leader.realizado / leaderMeta * 100) : 0;
 const leaderName  = leader ? leader.vendedor : '-';
 const leaderColor = leader ? colorFor(leader.vendedor) : 'var(--muted)';
-const leaderBadge = topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber' : 'badge-red';
+// Rótulo honesto: no mês corrente o denominador é a META PRO RATA (não a meta cheia — o
+// gráfico "Atingimento da meta" logo abaixo usa a cheia, por isso os % diferem). Em
+// semana/hoje não existe meta do período, então mostra só o nº de válidos, sem cor.
+const periodoLider = document.getElementById('filter-periodo').value;
+const liderSemMeta = (periodoLider === 'today' || periodoLider === 'week');
+const leaderBadge = liderSemMeta ? '' : (topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber' : 'badge-red');
+const leaderBadgeTxt = !leader ? '—'
+  : liderSemMeta ? (leader.realizado + (leader.realizado === 1 ? ' válido' : ' válidos'))
+  : (ating && ating.isMesCorrente) ? (topPct + '% da meta pro rata')
+  : (topPct + '% da meta');
 
-  const diasUteisFallback = 20;
-  const mediaDia = (Math.ceil(totalPeriodo) / diasUteisFallback).toFixed(1);
+  // Média por dia útil: volume bruto ATÉ HOJE (reunião com data futura fica fora)
+  // ÷ dias úteis decorridos no período (seg–sex menos a aba "Feriados", quando o backend
+  // manda a lista). Antes era total ÷ 20 fixo: no dia 07/09 dava 99 ÷ 20 = 5,0 com só
+  // 4 dias úteis passados e 15 reuniões ainda por acontecer dentro dos 99.
+  const duInfo = calcularDiasUteisDecorridos_();
+  const totalAteHoje = getTotalPorMetricAteHoje_('count');
+  const mediaDia = duInfo.dias > 0 ? (totalAteHoje / duInfo.dias).toFixed(1) : '—';
+  const mediaDiaSub = duInfo.dias > 0
+    ? (totalAteHoje + ' até hoje ÷ ' + duInfo.dias + (duInfo.dias === 1 ? ' dia útil' : ' dias úteis') + (duInfo.comFeriados ? '' : ' (seg–sex)'))
+    : 'nenhum dia útil decorrido no período';
 
   // KPI "Atingimento Projeção / Atingimento" — agora period-aware
   // Mês corrente: usa col K do Compilado (projeção pro-rata)
@@ -1872,7 +1934,7 @@ const leaderBadge = topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber'
     ? `${projContexto} · vs Meta Pro Rata · mês corrente`
     : `${projContexto} · vs Meta Total · ${ating ? ating.mesLabel : '—'} (mês finalizado)`;
     const projTituloKPITip = (ating && ating.isMesCorrente)
-    ? 'Compara o que o time ja fez (realizado + 85% do que esta quase certo de validar) contra a meta proporcional aos dias ja passados no mes. Responde: como estamos indo ate agora, comparado com o esperado ate hoje?'
+    ? 'Col K do Compilado: (Realizado + 85% do A validar) ÷ Meta Pro Rata (meta × dias úteis decorridos ÷ dias úteis do mês). O A validar inclui reuniões ainda futuras no mês, por isso este número pode passar de 100% mesmo com o ritmo de validados abaixo da meta — compare com o card Projetado (Fim do Mês), que extrapola só os validados.'
     : 'Atingimento final do mes ja encerrado: realizado vs meta do mes inteiro.';
 
     // KPI extra "Atingimento Projetado (Fim do Mes)" - projecao full-month real (coluna M do Compilado)
@@ -1895,11 +1957,13 @@ const leaderBadge = topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber'
     : projMesPct >= 1.0 ? 'badge-green'
     : projMesPct >= 0.8 ? 'badge-amber'
     : 'badge-red';
-    const projMesTituloKPI = 'Atingimento Projetado (Fim do Mes)';
+    const projMesTituloKPI = (ating && ating.isMesCorrente) ? 'Atingimento Projetado (Fim do Mês)' : 'Atingimento (mês finalizado)';
     const projMesSubKPI = (ating && ating.isMesCorrente)
-    ? `${projContexto} vs Meta Mes - projecao full-month`
-    : `${projContexto} vs Meta Total - ${ating ? ating.mesLabel : '-'} (mes finalizado)`;
-    const projMesTituloKPITip = 'Projeta o realizado no ritmo atual ate o fim do mes (extrapolando pelos dias uteis restantes) e compara com a meta do mes inteiro. Responde: se continuarmos nesse ritmo, vamos bater a meta do mes?';
+    ? `${projContexto} vs Meta Mês - projeção full-month`
+    : `${projContexto} vs Meta Total - ${ating ? ating.mesLabel : '-'} (mesmo valor do card ao lado)`;
+    const projMesTituloKPITip = (ating && ating.isMesCorrente)
+    ? 'Col M do Compilado: [Realizado + 85% do A validar + (Realizado ÷ dias úteis decorridos) × dias úteis restantes] ÷ Meta do mês. Extrapola só o ritmo de VALIDADOS até hoje — por isso fica abaixo do card Atingimento Projeção quando há muito A validar.'
+    : 'Mês finalizado: realizado ÷ meta do mês (não há mais projeção).';
 
   const sufixo = getSufixoPeriodo();
   const subtitle = getSubtitlePeriodo();
@@ -1928,7 +1992,7 @@ const leaderBadge = topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber'
       <div class="metric">
         <div class="metric-label">Esta semana</div>
         <div class="metric-value">${totalSemana}</div>
-        <div class="metric-sub">${weekStart} a ${weekEnd}</div>
+        <div class="metric-sub">${weekStart} a ${weekEnd} · seg→dom, inclui reuniões futuras</div>
       </div>
       <div class="metric">
         <div class="metric-label">Hoje</div>
@@ -1936,14 +2000,14 @@ const leaderBadge = topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber'
         <div class="metric-sub">${today}</div>
       </div>
       <div class="metric">
-        <div class="metric-label">Média por dia</div>
+        <div class="metric-label">Média por dia útil</div>
         <div class="metric-value">${mediaDia}</div>
-        <div class="metric-sub">~${diasUteisFallback} dias úteis</div>
+        <div class="metric-sub">${mediaDiaSub}</div>
       </div>
       <div class="metric">
         <div class="metric-label">${labelLider}</div>
         <div class="metric-value" style="font-size:18px;padding-top:6px;color:${leaderColor}">${nomeCurto(leaderName)}</div>
-        <span class="metric-badge ${leaderBadge}">${topPct}% da meta</span>
+        <span class="metric-badge ${leaderBadge}">${leaderBadgeTxt}</span>
       </div>
       <div class="metric">
         <div class="metric-label">${projTituloKPI} <span class="info-tip">i<span class="info-tip-content">${projTituloKPITip}</span></span></div>
@@ -1952,7 +2016,7 @@ const leaderBadge = topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber'
       </div>
       <div class="metric">
 <div class="metric-label">${projMesTituloKPI} <span class="info-tip">i<span class="info-tip-content">${projMesTituloKPITip}</span></span></div>
->      <div class="metric-value" style="color:${projMesBadge === 'badge-green' ? 'var(--accent)' : projMesBadge === 'badge-amber' ? 'var(--amber)' : 'var(--red)'}">${projMesPctLabel}</div>
+      <div class="metric-value" style="color:${projMesBadge === 'badge-green' ? 'var(--accent)' : projMesBadge === 'badge-amber' ? 'var(--amber)' : 'var(--red)'}">${projMesPctLabel}</div>
       <div class="metric-sub">${projMesSubKPI}</div>
       </div>
     </div>
@@ -2060,7 +2124,7 @@ const leaderBadge = topPct >= 100 ? 'badge-green' : topPct >= 80 ? 'badge-amber'
   });
 
   // Atingimento da meta — APENAS VALIDADOS vs meta mensal (fonte: aba Meta Pré vendedor)
-  const sellersAll = SELLERS;
+  const sellersAll = (sv === 'all') ? SELLERS : SELLERS.filter(function(s) { return s === sv; });
   const validadosAll = sellersAll.map(function(s) { return Math.ceil(validadosBy[s] || 0); });
   const metasArr = sellersAll.map(function(s) { return getMetaParaPeriodo(s) || 0; });
   const metaColors = sellersAll.map(function(s) {
@@ -2210,7 +2274,7 @@ function renderRanking() {
   // Mes corrente: mostra as DUAS colunas de atingimento (pro rata + meta cheia), igual a dash de Outbound.
   // Mes finalizado: pro rata == meta cheia (o mes acabou), entao fica so uma coluna.
   const isCurr = ating.isMesCorrente;
-  const gridCls = isCurr ? 'grid-rank-mtd7' : 'grid-rank-mtd';
+  const gridCls = isCurr ? 'grid-rank-mtd8' : 'grid-rank-mtd';
 
   // Ating. Meta = Realizado / Meta CHEIA do mes (sem ajuste por dias decorridos)
   const atingVsMetaCheia = function(r) {
@@ -2221,12 +2285,37 @@ function renderRanking() {
   const totalRow = ating.total || {};
   const totalBadge = badgeForPct(totalRow.atingimentoProRata);
   const totalMetaBadge = badgeForPct(atingVsMetaCheia(totalRow));
+  // Ating. Projeção = col K do Compilado: (Realizado + 85% do A validar) ÷ Meta Pro Rata.
+  // É a MESMA conta do card "Atingimento Projeção" da Visão Geral — só existe no mês corrente.
+  const totalProjBadge = badgeForPct(isCurr ? totalRow.atingimentoProjecaoPctVsMetaProRata : null);
+
+  // Guarda: a meta do Compilado (col B) e a da aba "Meta Pré vendedor" (mesmo mês) precisam
+  // ser iguais — o Ranking usa a primeira e o gráfico "Atingimento da meta" usa a segunda.
+  // Se divergirem (ou se a coluna do mês estiver vazia, o bug de jul/26), avisa em vez de calar.
+  let avisoMeta = '';
+  if (isCurr) {
+    const mpm = DASHBOARD_DATA.metasPorMes && DASHBOARD_DATA.metasPorMes.metas;
+    const metasAba = mpm ? mpm[ating.mesLabel] : null;
+    if (!metasAba) {
+      avisoMeta = 'Aba "Meta Pré vendedor" sem meta para ' + ating.mesLabel + ' — o gráfico "Atingimento da meta" da Visão Geral fica sem denominador.';
+    } else {
+      const div = (ating.rows || []).filter(function(r) {
+        const m = metasAba[r.vendedor];
+        return m != null && m !== '' && Number(m) !== Number(r.metaTime || 0);
+      }).map(function(r) { return r.vendedor + ' (Compilado ' + r.metaTime + ' × aba ' + metasAba[r.vendedor] + ')'; });
+      if (div.length) avisoMeta = 'Meta divergente entre Compilado e aba "Meta Pré vendedor": ' + div.join(', ') + '.';
+    }
+  }
+  const avisoMetaHtml = avisoMeta ? '<div class="rank-aviso">⚠ ' + avisoMeta + '</div>' : '';
 
   const rows = ranked.map(function(r, i) {
-    const meta_       = Math.ceil(r.metaTime || 0);
-    const metaProRata = Math.ceil(r.metaProRata || 0);
-    const realizado   = Math.ceil(r.realizado || 0);
+    // Math.round, não Math.ceil: ceil arredondava 19,8 → 20 e 82,1 → 83 (o Compilado mostra 82),
+    // e deixava a linha auto-contraditória (Vitória 15/16 = 93,8% com badge de 94,9%).
+    const meta_       = Math.round(r.metaTime || 0);
+    const metaProRata = Math.round(r.metaProRata || 0);
+    const realizado   = Math.round(r.realizado || 0);
     const atingBadge  = badgeForPct(r.atingimentoProRata);
+    const atingProjBadge = badgeForPct(isCurr ? r.atingimentoProjecaoPctVsMetaProRata : null);
     const atingMetaBadge = badgeForPct(atingVsMetaCheia(r));
 
     const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
@@ -2244,6 +2333,7 @@ function renderRanking() {
         <div style="text-align:center;color:var(--muted)">${metaProRata}</div>
         <div style="text-align:center;font-weight:600">${realizado}</div>
         <div style="text-align:center"><span class="metric-badge ${atingBadge.cls}">${atingBadge.label}</span></div>
+        ${isCurr ? `<div style="text-align:center"><span class="metric-badge ${atingProjBadge.cls}">${atingProjBadge.label}</span></div>` : ''}
         ${isCurr ? `<div style="text-align:center"><span class="metric-badge ${atingMetaBadge.cls}">${atingMetaBadge.label}</span></div>` : ''}
       </div>`;
   }).join('');
@@ -2259,12 +2349,13 @@ function renderRanking() {
     return `<span class="info-tip${right ? ' tip-right' : ''}">i<span class="info-tip-content">${txt}</span></span>`;
   };
   const legendaAting = isCurr
-    ? ' · Ating. Pro Rata = no ritmo esperado até hoje · Ating. Meta = do total do mês'
+    ? ' · Ating. Pro Rata = no ritmo esperado até hoje · Ating. Projeção = (realizado + 85% do a validar) vs pro rata · Ating. Meta = do total do mês'
     : '';
 
   document.getElementById('tab-content').innerHTML = `
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6;">
       ${headerInfo}${legendaAting}
+      ${avisoMetaHtml}
     </div>
     <div class="table-card">
       <div class="table-head ${gridCls}">
@@ -2274,16 +2365,18 @@ function renderRanking() {
         <div style="text-align:center">${colProRataLabel}</div>
         <div style="text-align:center">${colRealizadoLabel}</div>
         <div style="text-align:center">${colAtingLabel}${isCurr ? tip('Realizado ÷ Meta Pro Rata (meta ajustada pelos dias já decorridos). 100% = está no ritmo até hoje.', true) : ''}</div>
+        ${isCurr ? `<div style="text-align:center">Ating. Projeção${tip('(Realizado + 85% do A validar) ÷ Meta Pro Rata — col K do Compilado, a mesma conta do card "Atingimento Projeção" da Visão Geral. Atenção: o A validar inclui reuniões ainda futuras no mês.', true)}</div>` : ''}
         ${isCurr ? `<div style="text-align:center">Ating. Meta${tip('Realizado ÷ Meta CHEIA do mês, sem ajuste por dias decorridos. Quanto do mês inteiro já foi entregue.', true)}</div>` : ''}
       </div>
       ${rows || '<div class="table-row"><div></div><div style="color:var(--muted)">Sem vendedores.</div></div>'}
       <div class="table-row ${gridCls}" style="background:var(--surface2);font-weight:600;">
         <div></div>
-        <div style="text-transform:uppercase;font-size:11px;letter-spacing:0.06em;color:var(--muted);">Total</div>
-        <div style="text-align:center">${Math.ceil(totalRow.metaTime || 0)}</div>
-        <div style="text-align:center">${Math.ceil(totalRow.metaProRata || 0)}</div>
-        <div style="text-align:center">${Math.ceil(totalRow.realizado || 0)}</div>
+        <div style="text-transform:uppercase;font-size:11px;letter-spacing:0.06em;color:var(--muted);">${sv === 'all' ? 'Total' : 'Total do time'}</div>
+        <div style="text-align:center">${Math.round(totalRow.metaTime || 0)}</div>
+        <div style="text-align:center">${Math.round(totalRow.metaProRata || 0)}</div>
+        <div style="text-align:center">${Math.round(totalRow.realizado || 0)}</div>
         <div style="text-align:center"><span class="metric-badge ${totalBadge.cls}">${totalBadge.label}</span></div>
+        ${isCurr ? `<div style="text-align:center"><span class="metric-badge ${totalProjBadge.cls}">${totalProjBadge.label}</span></div>` : ''}
         ${isCurr ? `<div style="text-align:center"><span class="metric-badge ${totalMetaBadge.cls}">${totalMetaBadge.label}</span></div>` : ''}
       </div>
     </div>`;
@@ -2575,6 +2668,12 @@ function renderFunil() {
       </div>
     </div>` : '';
 
+  // Leads sem pré-vendedor válido entram só no card Total (backend soma em Total.lead).
+  // Sem esta nota, a soma dos cards individuais parece "não bater" com o Total.
+  const semOwnerLead = (fl.fatiadoSemOwner || []).reduce(function(a, x) { return a + ((x.mes && x.mes.lead) || 0); }, 0);
+  const notaSemOwner = (sv === 'all' && semOwnerLead > 0)
+    ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">O card <strong style="color:var(--text)">Total</strong> inclui ${semOwnerLead} lead${semOwnerLead === 1 ? '' : 's'} sem pré-vendedor válido (etapa Lead), que não aparecem nos cards individuais — por isso a soma dos cards é menor que o Total.</div>`
+    : '';
   const filtrosAtivos = temFiltrosDimensoesAtivos_();
   const disclaimerFiltros = filtrosAtivos ? `
     <div style="font-size:11px;color:var(--amber);margin-top:6px;font-weight:700;">
@@ -2587,6 +2686,7 @@ function renderFunil() {
       <div class="chart-card-sub">
         Fonte: Base Leads 2025-2026 · Período: ${fl.dateRange.start} → ${fl.dateRange.end}
       </div>
+      ${notaSemOwner}
       <div style="font-size:11px;color:var(--muted);line-height:1.7;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;">
         <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent);margin-right:8px;vertical-align:middle;"></span><strong style="color:var(--text);font-weight:700">Visão Mês</strong> — linhas onde a data de cada etapa caiu na janela selecionada.</div>
         <div><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent);opacity:0.45;margin-right:8px;vertical-align:middle;"></span><strong style="color:var(--text);font-weight:700">Visão Safra</strong> — linhas onde a data de criação caiu na janela e o lead atingiu a etapa.</div>
@@ -3198,7 +3298,7 @@ function renderTipoReuniao() {
   document.getElementById('tab-content').innerHTML = `
     <div class="chart-card" style="margin-bottom:18px;">
       <div class="chart-card-title">Reunioes por tipo -- Online vs Presencial vs Agora</div>
-      <div class="chart-card-sub">Fonte: HubSpot Lead (tipo_de_reuniao) \u00b7 Base Leads 2025-2026 \u00b7 Total no periodo: ${totalGeral}</div>
+      <div class="chart-card-sub">Fonte: Base Leads 2025-2026 (leads que entraram em Agendado no periodo \u2014 universo diferente dos passes validados) \u00b7 Online/Presencial definido pelo Executivo de Vendas (4 executivos fazem online, o resto e presencial) \u00b7 "Agora" vem do HubSpot \u00b7 Total no periodo: ${totalGeral}</div>
       <div class="donut-wrap">
         ${donutSvg}
         <div class="donut-legend">${donutLegendHtml}</div>
@@ -3220,7 +3320,7 @@ function renderTipoReuniao() {
       </div>
       <div class="chart-card">
         <div class="chart-card-title">Reunioes por Rota</div>
-        <div class="chart-card-sub">rota_do_lead \u00b7 Base Leads \u00b7 Top 8 + Outras</div>
+        <div class="chart-card-sub">rota_do_lead \u00b7 Base Leads \u00b7 todas as rotas, sem agrupamento</div>
         <div class="donut-wrap">
           ${rotaPieSvg}
           <div class="donut-legend">${rotaLegendHtml}</div>
@@ -3503,7 +3603,7 @@ function mostrarOverlayDeals_(vendedor, status, evt) {
   };
 
   const dateRange = (DASHBOARD_DATA.dealsOverlay && DASHBOARD_DATA.dealsOverlay.dateRange) || {};
-  const sub = `${fmtDataBR_(dateRange.start)} — ${fmtDataBR_(dateRange.end)} · mês corrente`;
+  const sub = `${fmtDataBR_(dateRange.start)} — ${fmtDataBR_(dateRange.end)} · janela da planilha (muda só em "Atualizar dados"), independente do seletor de período`;
 
   const bodyHtml = deals.length === 0
     ? '<div class="ovl-empty">Sem deals nessa combinação.</div>'

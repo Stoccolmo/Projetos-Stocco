@@ -103,19 +103,14 @@ function construirCohortPassesSemana() {
   }
   const layout = layoutCohort_(N);
 
-  // Nomes RAW da aba cohort (col B), N linhas a partir de absInicio. NÃO normalizar:
-  // a contagem compara com o proprietário (col H de Passes Do Mês), que é raw.
-  const vendedores = sheetCohort.getRange(layout.absInicio, layout.colVend, N, 1)
-    .getValues().map(function(r) { return r[0]; });
-
-  // Validação: avisa se a aba cohort tem menos nomes que o Compilado (operador
-  // adicionou vendedor no Compilado mas esqueceu de adicionar aqui).
-  const nomesBrancos = vendedores.filter(function(v) { return !v || String(v).trim() === ''; }).length;
-  if (nomesBrancos > 0) {
-    Logger.log('Cohort: ATENÇÃO — ' + nomesBrancos + ' nome(s) de vendedor em branco na coluna B ' +
-      '(esperados ' + N + ' nomes a partir da linha ' + layout.absInicio + ', conforme o Compilado). ' +
-      'Adicione os nomes faltantes na aba "' + CONFIG.ABA_COHORT + '".');
-  }
+  // Nomes vêm do COMPILADO (fonte da verdade do roster), não mais da col B por posição.
+  // Bug corrigido em 07/09/2026: a col B ainda tinha a lista antiga de 6 nomes; com N=4
+  // o cohort lia "Luiz Fernando Pellegrini" (saiu em ago/26, 0 passes) e deixava
+  // "Vitória Miranda" de fora — total 76 em vez de 99. Os nomes agora são ESCRITOS na
+  // col B dos dois blocos a cada execução, e a comparação com o proprietário (col H de
+  // Passes Do Mês) é normalizada dos dois lados (cobre alias como "Maria Victoria ...").
+  const vendedores = lerCompilado_(ss).rows.map(function(r) { return r.vendedor; });
+  const vendedoresNorm = vendedores.map(function(v) { return normalizarVendedor(v); });
 
   const formatarData = function(d) {
     const dia = String(d.getDate()).padStart(2, '0');
@@ -150,7 +145,7 @@ function construirCohortPassesSemana() {
         if (!dataReuniao || isNaN(dataReuniao.getTime())) continue;
         if (!dataCriacaoLinha || isNaN(dataCriacaoLinha.getTime())) continue;
         if (!proprietario) continue;
-        if (proprietario !== nomeVendedor) continue;
+        if (normalizarVendedor(proprietario) !== vendedoresNorm[v]) continue;
 
         dataReuniao.setHours(0, 0, 0, 0);
         dataCriacaoLinha.setHours(0, 0, 0, 0);
@@ -223,6 +218,20 @@ function construirCohortPassesSemana() {
   // Limpa áreas de saída antes de reescrever (clear único generoso, via helper
   // compartilhado — cobre resíduo de execução anterior com N maior; nunca toca H1/H2)
   limparAreaCohort_(sheetCohort);
+
+  // Col B: apaga o resíduo do roster antigo (até o teto) e escreve o roster atual nos
+  // dois blocos, com os rótulos do bloco percentual. lerCohort_ (Reader.gs) continua
+  // lendo a col B — agora sempre coerente com o que foi contado.
+  const layoutTeto = layoutCohort_(CONFIG.COHORT.MAX_VENDEDORES);
+  sheetCohort.getRange(layout.absInicio, layout.colVend, layoutTeto.totalPerc - layout.absInicio + 1, 1).clearContent();
+  const nomesCol = vendedores.map(function(v) { return [v]; });
+  sheetCohort.getRange(layout.absInicio, layout.colVend, N, 1).setValues(nomesCol);
+  sheetCohort.getRange(layout.totalAbs, layout.colVend, 1, 1).setValue('Total');
+  sheetCohort.getRange(layout.percDatas - 1, layout.colVend, 1, 1).setValue('Semana de Criação');
+  sheetCohort.getRange(layout.percDatas, layout.colVend, 1, 1).setValue('Passes da Semana');
+  sheetCohort.getRange(layout.percNumeros, layout.colVend, 1, 1).setValue('Pré Vendedor');
+  sheetCohort.getRange(layout.percInicio, layout.colVend, N, 1).setValues(nomesCol);
+  sheetCohort.getRange(layout.totalPerc, layout.colVend, 1, 1).setValue('Total');
 
   // ── MATRIZ ABSOLUTA ──────────────────────────────────────
   const rangeDatas1 = sheetCohort.getRange(layout.absDatas, layout.colDados, 1, cabecalhosData.length);

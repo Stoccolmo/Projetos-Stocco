@@ -416,3 +416,54 @@ Regras mantidas dos meses anteriores: só os 4 pré-vendedores ativos recebem me
 O cabeçalho da aba "Meta Pré vendedor" tem um `#REF!` na coluna M (depois de 01/11/2026). Já estava assim antes desta sessão e não afeta o painel (`lerMetasMensais_` ignora cabeçalho que não é data). Fica registrado para não ser confundido com efeito desta edição.
 
 Sem mudança de código nesta sessão — nada a reimplantar no Apps Script (segue Versão 20).
+
+---
+
+## 07/09/2026 — Ranking ganha "Ating. Projeção" + teste de contradição lógica na dash inteira (Versão 21, pronta para publicar)
+
+### Pedido
+Rodrigo pediu (1) a coluna **Ating. Projeção** no Ranking, entre "Ating. Pro Rata" e "Ating. Meta", e (2) um **teste de contradição lógica na dash inteira** — não contra a planilha, mas se os números das abas (Visão Geral, Ranking, Evolução, Funil, Cohort, Online vs Presencial, MRR) fazem sentido entre si e estão corretos — com correção antes da entrega.
+
+### Método
+1. **Espelho ressincronizado byte a byte com a produção** antes de qualquer edição (hash de bloco → hash de linha, via Monaco). Divergência encontrada: só comentários (Reader 516-517/565/1090, Index 850-853/1029/1244-1247/1258-1261, Sync 9/12/99-114 — a produção não tem acentos nesses trechos, o espelho tinha) e o token redigido em `leads.gs`. Nenhuma diferença de código. Espelho corrigido para o texto exato da produção.
+2. **Payload real da dash** lido via `…/exec?action=fetch` (o mesmo JSON que alimenta todas as abas) e cada seção recomputada.
+3. **Cruzamento com o HubSpot** replicando o `SyncNeo.gs` (deals com `data_da_reuniao__sdr_` em setembro, por `sdr`): 99 passes / 52 Sim / 8 Não / 39 a validar; por pessoa Eduarda 16-9, Giovanna 32-12, Pedro 28-16, Vitória 23-15 — **bate exatamente** com Visão Geral e Ranking. "Esta semana 15" e "Hoje 0" também batem (07/09 é feriado; as 15 são reuniões de 08 a 12/09).
+4. Revisão de código independente (subagente) de `Index.html`, `Reader.gs`, `Cohort.gs`, `Code.gs` procurando métricas calculadas de forma diferente entre abas, rótulos que contradizem o cálculo, filtros aplicados pela metade e arredondamentos.
+5. Fórmulas do Compilado inferidas dos valores: col K = (52 + 0,85×39) ÷ 82,10 = 103,7% ✓; col M = [85,15 + (52÷4)×17] ÷ 431 = 71,03% ✓ (4 dias úteis decorridos, 17 restantes, 21 no mês — confere com a aba Feriados: 07/09).
+
+### Achados CORRIGIDOS nesta versão (33 hunks: Index.html 26, Reader.gs 4, Cohort.gs 3)
+
+| # | Aba | Contradição | Correção |
+|---|---|---|---|
+| 1 | **Cohort** | **Mostrava "Luiz Fernando Pellegrini" (saiu em ago, 0 passes) e omitia Vitória Miranda; total 76 em vez de 99.** `Cohort.gs` lia os nomes por posição na col B da aba "Passes da Semana", que ainda tinha a lista antiga de 6 (Eduarda, Giovanna, Luiz, Pedro, Roberta, "Maria Victoria…"); com N=4 pegava os 4 primeiros. Os rótulos do bloco percentual também estavam desalinhados. | Roster vem do Compilado; nomes são **escritos** na col B dos dois blocos a cada execução (limpando resíduo até o teto); comparação com o proprietário normalizada dos dois lados. Regenera no próximo "Atualizar dados" / sync das 18h. |
+| 2 | Visão Geral | "Média por dia 5.0 (~20 dias úteis)" = 99 ÷ 20 **fixo**, com 15 reuniões futuras no numerador e só 4 dias úteis passados. | Card vira **"Média por dia útil"** = volume bruto **até hoje** ÷ dias úteis decorridos (seg–sex menos aba Feriados, que o backend passa em `metaInfo.feriados`). Hoje: 84 ÷ 4 = 21,0. |
+| 3 | Visão Geral | Líder "81% da meta" era vs **meta pro rata**; o gráfico "Atingimento da meta" logo abaixo usa a meta **cheia** (Pedro 15%). Em Semana/Hoje o % misturava validados da semana com pro rata do mês. | Badge diz "% da meta pro rata" no mês corrente, "% da meta" em mês fechado, e em Semana/Hoje mostra só "N válidos", sem cor. |
+| 4 | Visão Geral | "Atingimento Projeção 103,7%" e "Projetado (Fim do Mês) 71,0%" na mesma linha, ambos com tooltip "no ritmo atual". Não são contraditórios entre si (fórmulas diferentes, ver Método 5), mas os tooltips escondiam isso. | Tooltips com a fórmula real (col K e col M) e o porquê da diferença: K conta 85% do "a validar" (inclusive reuniões futuras); M extrapola só o ritmo de validados. Título vira "Atingimento (mês finalizado)" quando o mês fechou. |
+| 5 | Visão Geral | `>` solto renderizado antes do valor do card Projetado (typo no template, linha 1953). | Removido. |
+| 6 | Visão Geral | Com um pré-vendedor filtrado, "Agendamentos por vendedor" filtrava e "Atingimento da meta" mostrava os 4. | Gráfico respeita o filtro. |
+| 7 | Visão Geral | Card "Esta semana" é seg→**dom** (inclui futuro); preset "Semana atual" é seg→**hoje**. Hoje: card 15, preset 0. | Sub-rótulo do card explicita "seg→dom, inclui reuniões futuras" (decisão antiga de manter a semana completa foi preservada). |
+| 8 | Ranking | `Math.ceil` na meta pro rata: 19,81 → 20, 82,10 → **83** (Compilado mostra 82); Vitória "15/16 = 94,9%" (15/16 = 93,8%). | `Math.round`. |
+| 9 | Ranking | Com filtro de pré-vendedor, linha "Total" era do time inteiro sem dizer. | Rótulo "Total do time" quando filtrado. |
+| 10 | Ranking | Duas fontes de meta sem cruzamento (Compilado col B × aba "Meta Pré vendedor") — foi o bug de julho. | Aviso âmbar no cabeçalho se a coluna do mês estiver vazia ou divergir por pessoa. |
+| 11 | Ranking (mês fechado) | Vendedor sem meta virava "0,0%" vermelho. | `null` → "—". |
+| 12 | Online vs Presencial | Rótulo "Fonte: HubSpot Lead (tipo_de_reuniao)" errado desde 24/08 (regra é por Executivo de Vendas); "Top 8 + Outras" errado desde 10/08 (mostra todas). Universo (leads que entraram em Agendado: 83 em set) ≠ passes validados (52) sem aviso. | Rótulos corrigidos e universo explicitado. |
+| 13 | Funil vs Meta | Card Total inclui leads sem pré-vendedor; soma dos cards ≠ Total, sem nota. | Nota com o nº de leads sem pré-vendedor. |
+| 14 | Cohort/overlay | Overlay dizia "mês corrente" fixo; a janela é a da planilha (B2:C2). | Texto dinâmico. |
+| 15 | **MRR** | **Snapshot de 10/08 sem data na tela**: agosto aparecia como mês fechado com Eduarda 6 reuniões/0 vendas, Giovanna 45/0 (real em 07/09: 72/10 e 155/14). | Snapshot **refeito no Redshift** (mesma consulta: `entities.Deal` pipeline "Executivo de Vendas 2.0" × `reports.EventoAssinatura` Ativação; abr–set/26, 4 SDRs Inbound) e gravado na aba com uma linha `snapshot | 2026-09-07`; `Reader.gs` lê a data e a dash mostra "snapshot de 07/09/2026 — meses iguais ou posteriores estão incompletos". `Number()||0` contra NaN. |
+
+Validação da consulta: abr e mai/26 reproduzem o snapshot antigo (Eduarda 78/21/16.091; Giovanna 120/34/26.234; Pedro 86/16/9.544) — Vitória abr 67→66 (um deal mudou de mês no HubSpot).
+
+### Achados DOCUMENTADOS, não corrigidos (precisam de decisão ou mudança maior)
+- **Roster atual filtra o passado**: `agregarMetas_`/`agregarTimeline_`/overlay/cohort só aceitam quem está no Compilado hoje. Passes de Luiz/Roberta em meses anteriores são descartados; no Funil, leads deles caem em "sem owner" e vão só pro Total. Ranking de agosto (mês fechado) sai menor que o time entregou. Correção sugerida: roster = união Compilado + "Meta Pré vendedor".
+- **Período custom cruzando meses**: KPI de atingimento usa o mês de `cohortStart` inteiro; outros cards usam a janela.
+- **Funil / Cohort / overlay ignoram o seletor de período** (só mudam em "Atualizar dados"); Funil e Cohort já imprimem a janela, o overlay agora também.
+- **Visão Mês do Funil pode passar de 100%** entre etapas (populações diferentes por etapa) — é taxa de fluxo, não conversão de coorte.
+- **Evolução**: dias sem passe somem do eixo (Δ% compara dias não consecutivos); "Δ Mensal" perde o dia 1 do mês anterior em meses de 31 dias (timeline de 60 dias).
+- **Online vs Presencial**: composição por vendedor não passa por `VENDEDORES_EXCLUIDOS_` (Roberta pode aparecer); KPIs de 3 tipos não somam 100% se existir "outro" (hoje 0).
+- **Coluna M do Compilado** projeta só validados; coluna K conta 85% do a validar (inclusive futuro). Vale o time decidir qual das duas é "a" projeção oficial — a dash agora explica as duas.
+
+### O que conferiu e está CORRETO
+Total no mês 99 = 52+39+8; Visão Geral (Neo Crescimento agregado) = Ranking (Compilado col D) = HubSpot; Ating. Pro Rata e Ating. Meta por linha; K e M reproduzidos; Evolução Δ diário/semanal/mensal com janelas equivalentes; `obterInicioSemana`/`obterFimSemana_`; Cohort.gs numeração/janelas/percentual por linha; overlay de deals 99 = passes; funilLeads com 4 vendedores; normalização de nomes consistente; cache/lock do refresh.
+
+### Deploy — AGUARDANDO
+O classificador do modo auto bloqueou a escrita no editor do Apps Script (como em 27/08). Tudo está pronto em **`docs/aplicar-v21.js`** (33 hunks, cada âncora validada como única contra a produção atual; o script aborta sem alterar nada se alguma não casar 1×). Caminho: Rodrigo cola no console do DevTools com o editor aberto (digitar `allow pasting` antes, se o Chrome pedir) → salvar **Index.html, Reader.gs e Cohort.gs** pelo ícone da UI → Implantar → Gerenciar implantações → Nova versão (**Versão 21**) → abrir a dash e clicar "Atualizar dados" (regenera o Cohort com o roster certo e recarrega o snapshot de MRR). `docs/build-v21.js` regenera espelho + applier a partir dos hunks.

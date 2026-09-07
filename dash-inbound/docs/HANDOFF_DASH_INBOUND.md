@@ -43,18 +43,19 @@ Dashboard de gestão do Pré-Vendas Inbound com abas de Visão Geral, Funil vs M
 
 ## Funcionalidades entregues (mais recentes primeiro)
 
+- **Versão 21 (pronta, aguardando colar `docs/aplicar-v21.js`)**: coluna "Ating. Projeção" no Ranking + 15 correções do teste de contradição lógica (Cohort lia o roster antigo e omitia Vitória; Média por dia útil real; badge do Líder "da meta pro rata"; tooltips com as fórmulas das cols K/M; MRR com data do snapshot, refeito no Redshift em 07/09). Ver `decisoes/DECISOES-inbound.md` 07/09.
 - **Meta de setembro/2026** lançada em "Compilado de Passes" e na coluna 01/09/2026 de "Meta Pré vendedor" (Eduarda 104, Giovanna 140, Pedro Dias 104, Vitória Miranda 83 — total 431), 07/09/2026.
 - **Meta de agosto/2026** lançada em "Compilado de Passes" preservando histórico (Eduarda 88, Giovanna 137, Pedro Dias 101, Vitória Miranda 81 — total 407); Luiz Fernando Pellegrini e Roberta Lobasso zerados (saíram do time).
 - **Filtro de Origem** em "Funil vs Meta" (Macro/Micro/Perfil/Tipo Estab., multi-select).
 - **Aba "Online vs Presencial"**: donut de `tipo_de_reuniao` (fonte: HubSpot Lead) com tooltip customizado que segue o cursor (`showChartTip_`/`hideChartTip_`, SVG puro), composição por pré-vendedor, reuniões por Executivo de Vendas, reuniões por Rota.
 - Rótulo "Vendedor" → "Pré-vendedor" trocado globalmente no painel.
 - **Gráficos de pizza** pra "Reuniões por Rota" e "Reuniões por Executivo de Vendas" (mesmo padrão do painel Outbound, mas reaproveitando o tooltip que já existia no Inbound — `showChartTip_`/`hideChartTip_`, segue o cursor). Mostram **todas** as fatias individualmente, sem agrupar as menores em "Outros" (pedido explícito do Rodrigo). Paleta de cores expandida para 20 tons (`BREAKDOWN_PALETTE_`).
-- **Aba "MRR"**: duas tabelas (por mês de agendamento da reunião e por mês de venda/fechamento) mostrando quanto de MRR cada pré-vendedor gerou, com % de conversão. Fonte de dados é um **snapshot manual do Redshift** (não é ao vivo — ver nota técnica abaixo), lido por `lerMRRPorPreVendedor_` (Reader.gs) a partir da aba "MRR por Pré-vendedor" na planilha mãe.
+- **Aba "MRR"**: snapshot refeito em 07/09/2026 (Redshift, abr–set/26) com linha de controle `snapshot` na aba — a dash (V21) mostra a data. Duas tabelas (por mês de agendamento da reunião e por mês de venda/fechamento) mostrando quanto de MRR cada pré-vendedor gerou, com % de conversão. Fonte de dados é um **snapshot manual do Redshift** (não é ao vivo — ver nota técnica abaixo), lido por `lerMRRPorPreVendedor_` (Reader.gs) a partir da aba "MRR por Pré-vendedor" na planilha mãe.
 - **Luiz Fernando Pellegrini e Roberta Lobasso removidos** do filtro de pré-vendedor, do mapa de metas e da aba MRR (`VENDEDORES_EXCLUIDOS_` em Index.html) — Luiz foi demitido, Roberta é do time de Outbound e não deve aparecer no painel Inbound.
 
 ## Ambientes
 
-- **Produção**: planilha `1YebaLxqGoS38A_MUk-B0P50g0JL7Srh3T85mGJ_KdPY`, script `1gRnpQdbrQieE2QAkgnEXtTFAB1bdYR2d1CabNfk4Fg31iAXvD6ng3PWp`. Versão implantada atual: **Versão 19** (25/08/2026).
+- **Produção**: planilha `1YebaLxqGoS38A_MUk-B0P50g0JL7Srh3T85mGJ_KdPY`, script `1gRnpQdbrQieE2QAkgnEXtTFAB1bdYR2d1CabNfk4Fg31iAXvD6ng3PWp`. Versão implantada atual: **Versão 20** (27/08/2026). **Versão 21** pronta em `docs/aplicar-v21.js` (07/09/2026), aguardando aplicação — `docs/build-v21.js` regenera espelho + applier.
 - **Teste**: planilha `1JnxESNWy_CutGxR6ak_Ma8sG9QfJUc3xFqYbGDAgugE` ("[TESTE] Meta e Andamento - Cópia"), script `1WnKDxA7ZdHk3O-th1iKMrknFA5o3Y9IJKwWxN1c2LZqz_InwrFwbJUMs` ("Copy of Dashboard Pré-Vendas"). Fluxo de trabalho: validar mudanças no teste primeiro, depois replicar em produção (edição direta via automação de navegador é possível, mas instável — ver notas técnicas). **Importante**: ao portar mudanças de teste pra produção, sempre checar `Code.gs` e `Reader.gs` também, não só `Index.html` — já aconteceu de uma mudança de backend ficar só no teste enquanto o frontend já tinha ido pra produção, quebrando a feature (MRR não aparecia porque faltava `mrrPorPreVendedor` no DATA).
 
 ## Pendências em aberto
