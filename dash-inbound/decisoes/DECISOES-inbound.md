@@ -419,7 +419,7 @@ Sem mudança de código nesta sessão — nada a reimplantar no Apps Script (seg
 
 ---
 
-## 07/09/2026 — Ranking ganha "Ating. Projeção" + teste de contradição lógica na dash inteira (Versão 21, pronta para publicar)
+## 07/09/2026 — Ranking ganha "Ating. Projeção" + teste de contradição lógica na dash inteira (Versão 21, publicada 16:14)
 
 ### Pedido
 Rodrigo pediu (1) a coluna **Ating. Projeção** no Ranking, entre "Ating. Pro Rata" e "Ating. Meta", e (2) um **teste de contradição lógica na dash inteira** — não contra a planilha, mas se os números das abas (Visão Geral, Ranking, Evolução, Funil, Cohort, Online vs Presencial, MRR) fazem sentido entre si e estão corretos — com correção antes da entrega.
