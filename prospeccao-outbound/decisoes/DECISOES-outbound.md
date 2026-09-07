@@ -46,6 +46,17 @@ Ranking de setembro recalculado com o código novo (teste em node com os deals r
 - [x] Verificação ao vivo (17:52, dash Mês atual, cache 16:58): card **Atingimento Projeção 55% — 18,2 est. / pro rata 33** no lugar do antigo 29%; card Atingimento 5% (8 válidas / meta 146) e Atingimento projetado 52% intactos. A aba Ranking não pôde ser aberta pela automação (cliques no iframe não registram); a coluna foi validada pelo teste em node acima e pela mesma função que renderiza o card.
 - [ ] Rodrigo conferir a aba Ranking na tela (coluna Ating. Projeção, Pedro 62%, Total 52%).
 
+### Ressalva documentada sem corrigir — ritmo do card "Atingimento projetado (fim período)" (pergunta de Rodrigo, 07/09 ~18h)
+Fórmula em produção: `projecao = validados + 0,85 × (aValidar + ritmo × diasRestantes)`, com `ritmo = total ÷ diasDecorridos` (o card "Média por dia"). Hoje: 20 ÷ 5 = 4,0/dia útil × 17 restantes = 68 novas; 8 + 0,85 × (12 + 68) = 76 → 76 ÷ 146 = **52%**.
+
+Dois vieses, em sentidos opostos:
+1. **Reunião futura no numerador do ritmo.** `total` é por data da reunião e inclui as 10 ainda não realizadas (7 do Pedro em 08/09; 08 e 09/09 de Roberta e João Pedro). Elas contam como "produção" dos 5 dias passados. Ritmo só com o que já aconteceu = 10 ÷ 5 = 2/dia → projeção 47 (32%). Mesmo padrão do item 3 do checklist do `METODO_AUDITORIA_DASH.md` (Inbound, "Média por dia" com reuniões futuras).
+2. **07/09 contado como dia útil.** `isDiaUtil_` só tira sáb/dom; não conhece feriados. Com feriado: 4 decorridos / 17 restantes de 21 → ritmo 5/dia → projeção 85 (58%). O Inbound desconta pela aba Feriados.
+
+Diferença estrutural vs Inbound: a col M do Compilado extrapola o ritmo de **validadas** (Realizado ÷ dias úteis decorridos × restantes), sem 0,85 nessa parcela; o Outbound extrapola **agendadas** e aplica 0,85. Nenhuma das duas é "errada", mas não são a mesma projeção.
+
+**Status:** explicado a Rodrigo, nada alterado. Ajuste mais defensável, se quiser uma V19: ritmo só com reuniões cuja data já passou (`dataReuniao <= hoje`) e dias úteis com feriados. Aguardando decisão.
+
 ---
 
 ## 07/09/2026 — Meta de setembro/2026 lançada (146)
