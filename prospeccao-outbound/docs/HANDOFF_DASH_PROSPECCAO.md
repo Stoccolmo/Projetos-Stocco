@@ -101,3 +101,16 @@ Preciso de ajuda com: [DESCREVER AQUI O QUE VOCÊ QUER FAZER AGORA — ex: "reso
 bonito, já pedi pro admin habilitar o Google Sites" ou "adicionar uma nova métrica X" ou
 "investigar por que o número Y está diferente do esperado"]
 ```
+
+## Racional de atingimento (desde a Versão 18, 07/09/2026)
+
+Paridade com a dash Inbound. Três leituras, cada uma com tooltip na tela:
+
+| Leitura | Fórmula | Onde | Para quê |
+|---|---|---|---|
+| **Atingimento** (oficial) | Validadas ÷ Meta cheia | card 6 da Visão Geral; coluna "Ating. Meta" do Ranking; gráfico "Atingimento da meta" | cobrança de meta / variável |
+| **Ating. Pro Rata** | Validadas ÷ Meta pro rata | coluna do Ranking | ritmo até hoje, só com o que já foi julgado |
+| **Atingimento Projeção** | (Validadas + 0,85 × A validar) ÷ Meta pro rata | card 7 da Visão Geral; coluna "Ating. Projeção" do Ranking | acompanhamento: quem tende a bater se o agendado acontecer |
+| **Atingimento projetado (fim período)** | [Validadas + 0,85 × (A validar + ritmo × dias úteis restantes)] ÷ Meta cheia | card 8 da Visão Geral | como o mês fecha no ritmo atual |
+
+Regras: "A validar" = sem julgamento (nem Sim nem Não), excluindo Perdido/Reagendamento, **incluindo reuniões ainda futuras do período** (por isso a projeção é otimista e pode passar de 100%). O 0,85 é constante fixa. Pro rata: cards usam dias úteis (seg–sex, sem feriados); Ranking usa dias corridos — divergência conhecida, mantida por decisão de Rodrigo em 07/09/2026. Detalhe e números em `decisoes/DECISOES-outbound.md` (entrada de 07/09/2026).

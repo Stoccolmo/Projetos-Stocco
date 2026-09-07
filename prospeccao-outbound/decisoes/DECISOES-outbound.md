@@ -4,6 +4,49 @@ Registro vivo das decisões, achados e pendências do painel de gestão Outbound
 
 ---
 
+## 07/09/2026 — Racional de atingimento igual ao Inbound: card "Atingimento Projeção" + coluna "Ating. Projeção" no Ranking (Versão 18, pronta para aplicar)
+
+### Contexto
+Rodrigo questionou se as 12 reuniões "A validar" de setembro estavam sendo consideradas a 85% no atingimento, porque o Pedro Porto aparecia com 0% tendo 8 a validar. Pediu o mesmo racional da dash Inbound (`METODO_AUDITORIA_DASH.md`), só para atingimento, mantendo o pro rata atual, e tooltips explicando cada número.
+
+### Diagnóstico (confirmado na API do HubSpot, 20 no período / 8 válidas / 12 a validar — igual à dash)
+- O 0,85 existia no Outbound, mas nos lugares errados para acompanhar pessoa: o card **"Atingimento pro rata"** só creditava a validar **com data até hoje** (2 das 12: uma da Roberta em 04/09 e uma do Pedro em 04/09) → 29%. As outras 10 são reuniões futuras (7 do Pedro em 08/09).
+- No **Ranking** não havia coluna com a validar: Ating. Pro Rata e Ating. Meta usam só validadas → Pedro 0% nas duas. O único lugar onde as 8 dele apareciam era o rótulo "proj." miúdo das barras.
+- No Inbound (V21): card "Atingimento Projeção" e coluna "Ating. Projeção" = (Realizado + 0,85 × **todo** o A validar, inclusive futuro) ÷ Meta pro rata. O gráfico "Atingimento da meta" por pessoa é válidas ÷ meta cheia nas duas dashes (não muda).
+
+### Decisão (Rodrigo, 07/09)
+Aplicar as duas mudanças; manter o pro rata como está (regra de dias inalterada: cards em dias úteis sem feriado, Ranking em dias corridos); manter 0,85 fixo; não mexer no gráfico por pessoa nem no card "Atingimento projetado (fim período)". Recomendação registrada: a projeção é leitura de **acompanhamento** (credita agendamento, pode inflar com reunião fraca); a **cobrança** continua no card/coluna Atingimento, só com validadas — mesma separação do Inbound.
+
+### O que muda (11 hunks, só `Index.html`; `Codigo.gs` intacto)
+| Onde | Antes | Depois |
+|---|---|---|
+| Card 7 da Visão Geral | "Atingimento pro rata" = (válidas + 0,85 × a validar já realizadas) ÷ meta pro rata → **29%** (9,7 / 33) | "Atingimento Projeção" = (válidas + 0,85 × **todas** a validar) ÷ meta pro rata → **55%** (18,2 / 33) |
+| Tooltip do card Atingimento (oficial) | citava "Atingimento pro rata" | cita "Atingimento Projeção" e diz que este é o número de cobrança |
+| Ranking | Meta · Pro rata · Realizado · Ating. Pro Rata · Ating. Meta | + **Ating. Projeção** entre Ating. Pro Rata e Ating. Meta, com tooltip no cabeçalho e `title` na célula mostrando a conta (N validadas + 85% de M a validar = X / pro rata P); linha Total idem |
+| A validar do Ranking | — | mesmo universo do card: sem julgamento (nem Sim nem Não) e **excluindo Perdido/Reagendamento**; inclui reuniões futuras do período |
+
+Ranking de setembro recalculado com o código novo (teste em node com os deals reais, 07/09):
+
+| Vendedor | Meta | Pro rata | Realizado | Ating. Pro Rata | **Ating. Projeção** | Ating. Meta |
+|---|---|---|---|---|---|---|
+| Caio Louback | 41 | 10 | 4 | 40% | **40%** | 10% |
+| Roberta Lobasso | 46 | 11 | 3 | 27% | **50%** | 7% |
+| João Pedro Modé | 13 | 3 | 1 | 33% | **62%** | 8% |
+| Pedro Porto | 46 | 11 | 0 | 0% | **62%** | 0% |
+| Total | 146 | 35 | 8 | 23% | **52%** | 5% |
+
+### Método (regras do `METODO_AUDITORIA_DASH.md`)
+1. **Desvio espelho × produção medido** por hash de linha via `monaco.editor.getModels()`: `Codigo.gs` idêntico (247 linhas); `Index.html` divergia em **1 linha (412)** — a produção não tem o `class="ph-bar-proj"` no rótulo "proj." das barras. Espelho ressincronizado para a produção antes de qualquer hunk.
+2. Hunks em `docs/build-v18.js` (âncora única validada, sintaxe dos 9 blocos `<script>` checada com `new Function`, template `<?!= data ?>` substituído só para compilar). Gera `scripts/Index.html` novo (793 linhas) e `docs/aplicar-v18.js`.
+3. Teste funcional: blocos carregados em `vm` do node com os 143 deals reais (consulta igual à do `Codigo.gs`) → card e Ranking acima.
+4. **Aplicação é manual** (escrita no editor é bloqueada para automação): Rodrigo cola `docs/aplicar-v18.js` no console do DevTools com o editor aberto (Index.html carregado), salva pelo ícone e publica **Nova versão** na implantação existente. Sem `refreshCache`: é só front-end, o payload não muda.
+
+### Pendências
+- [ ] Rodrigo colar o applier, salvar e publicar a Versão 18; depois F5 na dash e conferir card "Atingimento Projeção 55% (18,2 est. / pro rata 33)" e a coluna nova no Ranking (Pedro 62%).
+- [ ] Atualizar esta entrada com a hora da publicação.
+
+---
+
 ## 07/09/2026 — Meta de setembro/2026 lançada (146)
 
 ### Contexto

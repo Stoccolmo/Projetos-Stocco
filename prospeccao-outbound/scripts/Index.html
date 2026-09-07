@@ -308,6 +308,9 @@ var todayIso = toISO(new Date());
 var hoje = deals.filter(function(d){ return d.dataReuniao === todayIso; }).length;
 var aValidarPassado = inPeriod.filter(function(d){ return d.reuniaoEfetiva !== 'Sim' && d.reuniaoEfetiva !== 'Não' && d.dataReuniao && d.dataReuniao <= todayIso; }).length;
 var realizadoEstimado = validados + 0.85*aValidarPassado;
+// Atingimento Projeção (mesma régua da col K do Compilado do Inbound): credita 85% de TODO o
+// backlog A validar do período, inclusive reuniões ainda futuras — não só as já realizadas.
+var realizadoProjecao = validados + 0.85*aValidar;
 var wr = periodRange('ultimos_7');
 var semana = deals.filter(function(d){ return inRange(d.dataReuniao, wr); }).length;
 
@@ -340,7 +343,7 @@ var bookingAValidar = bookingTotal - bookingValidados - bookingNaoValidos;
 
 return { range:range, inPeriod:inPeriod, deals:deals, total:total, validados:validados, aValidar:aValidar, naoValidos:naoValidos,
 hoje:hoje, semana:semana, mediaPorDia:mediaPorDia, meta:meta, metaProRata:metaProRata, projecao:projecao, lider:lider, liderVal:liderVal, bdrs:bdrs,
-diasDecorridos:diasDecorridos, diasRestantes:diasRestantes, aValidarPassado:aValidarPassado, realizadoEstimado:realizadoEstimado,
+diasDecorridos:diasDecorridos, diasRestantes:diasRestantes, aValidarPassado:aValidarPassado, realizadoEstimado:realizadoEstimado, realizadoProjecao:realizadoProjecao,
 bookingTotal:bookingTotal, bookingValidados:bookingValidados, bookingAValidar:bookingAValidar, bookingNaoValidos:bookingNaoValidos };
 }
 
@@ -353,8 +356,8 @@ h += '<div class="ph-card"><div class="lbl">Esta semana'+infoIcon('Mesma métric
 h += '<div class="ph-card"><div class="lbl">Hoje'+infoIcon('Quantidade de reuniões marcadas para a data de hoje.')+'</div><div class="val ph-num">'+g.hoje+'</div></div>';
 h += '<div class="ph-card"><div class="lbl">Média por dia'+infoIcon('Total no período dividido pelos DIAS ÚTEIS já decorridos dentro do período (não conta sábado/domingo, não é pelos dias corridos totais), para não subestimar o ritmo em períodos ainda em andamento.')+'</div><div class="val ph-num">'+g.mediaPorDia+'</div></div>';
 h += '<div class="ph-card"><div class="lbl">Líder do período (válidos)'+infoIcon('Vendedor com mais reuniões marcadas como Válidas (reunião efetiva = Sim) dentro do período selecionado.')+'</div><div class="val" style="font-size:1.2rem;color:var(--accent)">'+(g.lider||'-')+'</div><div class="ph-badge good">'+g.liderVal+' válidos</div></div>';
-h += '<div class="ph-card"><div class="lbl">Atingimento'+infoIcon('ATINGIMENTO OFICIAL do período: quanto da meta CHEIA já foi efetivamente batido, sem nenhuma estimativa e sem pro-rata. FÓRMULA: Validados ÷ Meta cheia do período. Use este número para cobrança de meta. Os dois cards ao lado fazem as leituras ajustadas: Atingimento pro rata corrige o atraso de validação e compara com a meta proporcional aos dias úteis decorridos; Atingimento projetado estima como o período vai fechar no ritmo atual.')+'</div><div class="val ph-num">'+pct(g.validados,g.meta)+'%</div><div class="sub2">'+g.validados+' válidas / meta '+g.meta+'</div></div>';
-h += '<div class="ph-card"><div class="lbl">Atingimento pro rata'+infoIcon('Mesmo cálculo do Atingimento até hoje, mas corrigindo o atraso de validação. FÓRMULA: (Validados + 0,85 × A Validar que JÁ ACONTECERAM) ÷ Meta pro-rata. Hoje são '+g.validados+' validadas + 85% de '+g.aValidarPassado+' reuniões já realizadas e pendentes de julgamento = '+g.realizadoEstimado.toFixed(1)+'. IMPORTANTE: só entram as reuniões com data ATÉ HOJE. As que estão agendadas para os próximos dias ficam de fora, porque ainda não foram realizadas — não faria sentido creditar trabalho que ainda não aconteceu no desempenho até agora. Os 85% são uma taxa de efetividade esperada, fixa no sistema (a taxa real histórica do time está em torno de 90%).')+'</div><div class="val ph-num">'+pct(g.realizadoEstimado,g.metaProRata)+'%</div><div class="sub2">'+g.realizadoEstimado.toFixed(1)+' est. / pro rata '+Math.round(g.metaProRata)+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Atingimento'+infoIcon('ATINGIMENTO OFICIAL do período: quanto da meta CHEIA já foi efetivamente batido, sem nenhuma estimativa e sem pro-rata. FÓRMULA: Validados ÷ Meta cheia do período. Use este número para cobrança de meta. Os dois cards ao lado fazem as leituras ajustadas: Atingimento Projeção credita 85% do que ainda está A validar (inclusive reuniões futuras) e compara com a meta pro rata dos dias úteis decorridos; Atingimento projetado estima como o período vai fechar no ritmo atual. Este card é o número de cobrança; os outros dois são acompanhamento.')+'</div><div class="val ph-num">'+pct(g.validados,g.meta)+'%</div><div class="sub2">'+g.validados+' válidas / meta '+g.meta+'</div></div>';
+h += '<div class="ph-card"><div class="lbl">Atingimento Projeção'+infoIcon('Leitura de ACOMPANHAMENTO, mesma régua da dash Inbound. FÓRMULA: (Validados + 0,85 × A validar) ÷ Meta pro rata. Hoje: '+g.validados+' validadas + 85% de '+g.aValidar+' reuniões A validar = '+g.realizadoProjecao.toFixed(1)+', contra meta pro rata de '+Math.round(g.metaProRata)+' (meta × dias úteis decorridos ÷ dias úteis do período). IMPORTANTE: o A validar inclui as reuniões ainda FUTURAS dentro do período, não só as que já aconteceram. Por isso é uma leitura otimista: pode passar de 100% com poucas validadas, e cai no dia seguinte se as reuniões marcadas não acontecerem ou forem julgadas como Não válidas. Os 85% são a taxa de efetividade esperada, fixa no sistema (a real do time gira em torno de 90%). Use este número para ver quem tende a bater e quem precisa de ajuda ainda no mês. Para cobrança, use o card Atingimento, que só conta validadas.')+'</div><div class="val ph-num">'+pct(g.realizadoProjecao,g.metaProRata)+'%</div><div class="sub2">'+g.realizadoProjecao.toFixed(1)+' est. / pro rata '+Math.round(g.metaProRata)+'</div></div>';
 h += '<div class="ph-card"><div class="lbl">Atingimento projetado (fim período)'+infoIcon('Projeta COMO O PERÍODO VAI FECHAR se o ritmo atual for mantido. FÓRMULA: [Validados + 0,85 × (A Validar + Média por dia × dias úteis restantes)] ÷ Meta CHEIA do período. Soma três coisas: (1) o que já está validado ('+g.validados+'); (2) 85% de TODO o backlog A Validar ('+g.aValidar+'), aqui incluindo também as reuniões ainda por acontecer; (3) 85% do volume novo esperado, ou seja, as reuniões que ainda serão agendadas nos '+g.diasRestantes+' dias úteis restantes, estimadas em '+g.mediaPorDia+' por dia (o card Média por dia). Diferente dos dois cards ao lado, este compara com a meta CHEIA do período, não com a pro-rata, porque projeta o mês inteiro.')+'</div><div class="val ph-num">'+pct(g.projecao,g.meta)+'%</div><div class="sub2">projeção '+g.projecao+' / meta '+g.meta+'</div></div>';
 h += '</div>';
 
@@ -409,7 +412,7 @@ h += '<div class="ph-bar-col" title="'+esc(n)+' — Validados: '+v+' · A valida
 if (v>0) h += '<div style="height:'+Math.round((v/Math.max(tot,1))*100)+'%;background:var(--accent)"></div>';
 if (av>0) h += '<div style="height:'+Math.round((av/Math.max(tot,1))*100)+'%;background:var(--warn)"></div>';
 if (nv>0) h += '<div style="height:'+Math.round((nv/Math.max(tot,1))*100)+'%;background:var(--bad)"></div>';
-h += '</div><div class="ph-bar-lbl">'+n.split(' ')[0]+'</div><div class="ph-bar-proj" style="font-size:.65rem;color:var(--text2)">proj. '+projBdr+'</div></div>';
+h += '</div><div class="ph-bar-lbl">'+n.split(' ')[0]+'</div><div style="font-size:.65rem;color:var(--text2)">proj. '+projBdr+'</div></div>';
 });
 h += '</div></div>';
 
@@ -444,22 +447,29 @@ var metasMapR = metasForRange(range);
 var rows = activeBdrs().map(function(n){
 var iv = deals.filter(function(d){ return d.bdr===n; });
 var realizado = iv.filter(function(d){ return d.reuniaoEfetiva==='Sim'; }).length;
+// A validar = sem julgamento (nem Sim nem Não), excluindo Perdido/Reagendamento — mesmo universo do
+// card "Atingimento Projeção" da Visão Geral. Inclui reuniões ainda futuras dentro do período.
+var aValidar = iv.filter(function(d){ return d.reuniaoEfetiva!=='Sim' && d.reuniaoEfetiva!=='Não' && !d.isPerdido && !d.isReagendamento; }).length;
 var meta = metasMapR[n]||0;
 var proRata = Math.round(meta * (diasDecorridos/diasTotais));
-return { nome:n, meta:meta, proRata:proRata, realizado:realizado, atingProRata:pct(realizado,proRata), atingMeta:pct(realizado,meta) };
+var realizadoProjecao = realizado + 0.85*aValidar;
+return { nome:n, meta:meta, proRata:proRata, realizado:realizado, aValidar:aValidar, realizadoProjecao:realizadoProjecao, atingProRata:pct(realizado,proRata), atingProjecao:pct(realizadoProjecao,proRata), atingMeta:pct(realizado,meta) };
 }).sort(function(a,b){ return b.realizado - a.realizado; });
 
-var h = '<div class="ph-section"><h3>Ranking &mdash; '+range.label+infoIcon('Ranking ordenado pelo total de reuniões Validadas (reuniao_efetiva = Sim) no período, comparado à meta de cada vendedor.')+'</h3><div class="desc">'+toISO(range.start)+' a '+toISO(new Date(range.end-1))+' &middot; Ating. Pro Rata = no ritmo esperado até hoje &middot; Ating. Meta = do total do período</div>';
-h += '<table class="ph-table"><thead><tr><th>Vendedor</th><th class="num">Meta</th><th class="num">Pro rata'+infoIcon('Meta do vendedor multiplicada pela proporção de dias já decorridos no período. Ex: passou metade do mês → pro rata = metade da meta.')+'</th><th class="num">Realizado</th><th class="num">Ating. Pro Rata'+infoIcon('Realizado dividido pelo Pro Rata. Mostra se o vendedor está no ritmo esperado até hoje — 100% significa que está em dia.')+'</th><th class="num">Ating. Meta'+infoIcon('Realizado dividido pela Meta total do período, sem ajuste por dias decorridos.')+'</th></tr></thead><tbody>';
-var totMeta=0, totProRata=0, totRealizado=0;
+var h = '<div class="ph-section"><h3>Ranking &mdash; '+range.label+infoIcon('Ranking ordenado pelo total de reuniões Validadas (reuniao_efetiva = Sim) no período, comparado à meta de cada vendedor.')+'</h3><div class="desc">'+toISO(range.start)+' a '+toISO(new Date(range.end-1))+' &middot; Ating. Pro Rata = no ritmo esperado até hoje &middot; Ating. Projeção = (realizado + 85% do a validar) vs pro rata &middot; Ating. Meta = do total do período</div>';
+h += '<table class="ph-table"><thead><tr><th>Vendedor</th><th class="num">Meta</th><th class="num">Pro rata'+infoIcon('Meta do vendedor multiplicada pela proporção de dias já decorridos no período. Ex: passou metade do mês → pro rata = metade da meta.')+'</th><th class="num">Realizado</th><th class="num">Ating. Pro Rata'+infoIcon('Realizado dividido pelo Pro Rata. Mostra se o vendedor está no ritmo esperado até hoje — 100% significa que está em dia.')+'</th><th class="num">Ating. Projeção'+infoIcon('(Realizado + 0,85 × A validar) ÷ Pro rata. Mesma conta do card Atingimento Projeção da Visão Geral e da coluna homônima da dash Inbound. Credita 85% das reuniões do período ainda sem julgamento — inclusive as marcadas para os próximos dias — como se fossem validar. Leitura de acompanhamento: mostra quem tende a bater a meta se o que está agendado acontecer. Compare com Ating. Pro Rata (só validadas) para ver quanto depende de reunião ainda não realizada. Passe o mouse no percentual para ver os números.')+'</th><th class="num">Ating. Meta'+infoIcon('Realizado dividido pela Meta total do período, sem ajuste por dias decorridos. É o número de cobrança.')+'</th></tr></thead><tbody>';
+var totMeta=0, totProRata=0, totRealizado=0, totAValidar=0;
 rows.forEach(function(r,i){
-totMeta+=r.meta; totProRata+=r.proRata; totRealizado+=r.realizado;
+totMeta+=r.meta; totProRata+=r.proRata; totRealizado+=r.realizado; totAValidar+=r.aValidar;
 h += '<tr><td><span class="ph-rank">'+(i+1)+'</span>'+esc(r.nome)+'</td><td class="num ph-num">'+r.meta+'</td><td class="num ph-num">'+r.proRata+'</td><td class="num ph-num">'+r.realizado+'</td>';
 h += '<td class="num"><span class="ph-badge '+badgeClass(r.atingProRata)+'">'+r.atingProRata+'%</span></td>';
+h += '<td class="num" title="'+r.realizado+' validadas + 85% de '+r.aValidar+' a validar = '+r.realizadoProjecao.toFixed(1)+' / pro rata '+r.proRata+'"><span class="ph-badge '+badgeClass(r.atingProjecao)+'">'+r.atingProjecao+'%</span></td>';
 h += '<td class="num"><span class="ph-badge '+badgeClass(r.atingMeta)+'">'+r.atingMeta+'%</span></td></tr>';
 });
 h += '<tr class="total"><td>Total</td><td class="num ph-num">'+totMeta+'</td><td class="num ph-num">'+totProRata+'</td><td class="num ph-num">'+totRealizado+'</td>';
+var totProjecao = totRealizado + 0.85*totAValidar;
 h += '<td class="num"><span class="ph-badge '+badgeClass(pct(totRealizado,totProRata))+'">'+pct(totRealizado,totProRata)+'%</span></td>';
+h += '<td class="num" title="'+totRealizado+' validadas + 85% de '+totAValidar+' a validar = '+totProjecao.toFixed(1)+' / pro rata '+totProRata+'"><span class="ph-badge '+badgeClass(pct(totProjecao,totProRata))+'">'+pct(totProjecao,totProRata)+'%</span></td>';
 h += '<td class="num"><span class="ph-badge '+badgeClass(pct(totRealizado,totMeta))+'">'+pct(totRealizado,totMeta)+'%</span></td></tr>';
 h += '</tbody></table></div>';
 return h;
