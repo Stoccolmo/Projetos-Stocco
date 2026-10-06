@@ -756,7 +756,8 @@ function viewCohort(){
 var deals = filterDeals(DATA.deals);
 var now = new Date();
 var buckets = [];
-for (var i=3;i>=0;i--){ buckets.push(monthKey(new Date(now.getFullYear(), now.getMonth()-i, 1))); }
+// V20: janela fixa desde jun/26 (inicio da operacao), em vez dos ultimos 4 meses -- junho nao sai mais da tabela.
+for (var bd = new Date(2026, 5, 1); bd <= now; bd = new Date(bd.getFullYear(), bd.getMonth()+1, 1)){ buckets.push(monthKey(bd)); }
 var bdrs = activeBdrs();
 var h = '<div class="ph-section"><h3>Cohort &mdash; agendamentos por mês de criação do lead'+infoIcon('Agrupa os negócios pelo mês em que foram CRIADOS no HubSpot (não pelo mês da reunião), para comparar a produtividade de cada safra de leads, por vendedor.')+'</h3><div class="desc">Linhas = vendedor &middot; Colunas = mês em que o negócio foi criado</div>';
 h += '<table class="ph-table"><thead><tr><th>Vendedor</th>';
