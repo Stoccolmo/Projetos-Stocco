@@ -781,8 +781,10 @@ h += '<tr class="total"><td>Total</td>';
 colTotals.forEach(function(c){ h += '<td class="num ph-num">'+c+'</td>'; });
 h += '<td class="num ph-num">'+grandTotal+'</td></tr>';
 h += '</tbody></table></div>';
-h += renderVendasTable('MRR &mdash; por mês de agendamento'+infoIcon('Segmenta as vendas fechadas pelo mês em que a REUNIÃO foi agendada, não importa quando o contrato foi assinado depois. Útil para medir a qualidade das reuniões marcadas em cada mês.'), 'Vendas geradas por reuniões agendadas em cada mês, mesmo que o fechamento tenha ocorrido depois', deals, buckets, bdrs, 'dataReuniao');
-h += renderVendasTable('MRR &mdash; por mês de venda (fechamento)'+infoIcon('Segmenta as vendas fechadas pelo mês em que o CONTRATO foi assinado, não importa quando a reunião original aconteceu. Útil para medir o faturamento real que entrou em cada mês.'), 'Vendas fechadas em cada mês, independente de quando a reunião foi agendada', deals, buckets, bdrs, 'dataFechamento');
+// V19: vendas de BDR criadas direto no pipeline de Vendas (sem tipo de reunião) entram só aqui.
+var dealsVenda = deals.concat(filterDeals(DATA.vendasExtras || []));
+h += renderVendasTable('MRR &mdash; por mês de agendamento'+infoIcon('Segmenta as vendas (Contrato Assinado ou Concluído) pelo mês em que a REUNIÃO foi agendada, não importa quando o contrato foi assinado depois. Útil para medir a qualidade das reuniões marcadas em cada mês. Vendas registradas num negócio novo, criado direto pelo executivo sem data de reunião, não aparecem aqui — só na tabela por mês de venda.'), 'Vendas geradas por reuniões agendadas em cada mês, mesmo que o fechamento tenha ocorrido depois', dealsVenda, buckets, bdrs, 'dataReuniao');
+h += renderVendasTable('MRR &mdash; por mês de venda (fechamento)'+infoIcon('Segmenta as vendas pelo mês em que o CONTRATO foi assinado, não importa quando a reunião original aconteceu. Conta negócios em Contrato Assinado ou Concluído no pipeline de Vendas com o BDR no campo SDR, inclusive os que o executivo criou direto (sem tipo de reunião). Sem data de fechamento, usa a data de entrada em Contrato Assinado.'), 'Vendas fechadas em cada mês, independente de quando a reunião foi agendada', dealsVenda, buckets, bdrs, 'dataFechamento');
 return h;
 }
 </script>

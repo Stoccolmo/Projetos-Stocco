@@ -2,10 +2,12 @@
 var PIPELINE_OUTBOUND = '905667466';
 var STAGE_OUTBOUND = { VALIDACAO: '1371354117', PROSPECCAO: '1371354118', CONECTADO: '1371354119', QUALIFICACAO: '1371354120', AGENDADO: '1371354121', REAGENDAMENTO: '1371354122', PERDIDO: '1371354124' };
 var PIPELINE_VENDAS = '79388826';
-var STAGE_CONTRATO_ASSINADO = '150350641';
+// 150350640 = Contrato Assinado; 150350641 = Concluído. Até a V18 esta constante apontava para o Concluído com o nome trocado.
+var STAGE_CONTRATO_ASSINADO = '150350640';
+var STAGE_CONCLUIDO = '150350641';
 var BDR_OWNER_IDS = { '90529435': 'Caio Louback', '89320493': 'João Pedro Modé', '87959862': 'Pedro Porto', '82534211': 'Roberta Lobasso' };
 var STAGE_ENTERED_PROPS = ['hs_v2_date_entered_' + STAGE_OUTBOUND.VALIDACAO, 'hs_v2_date_entered_' + STAGE_OUTBOUND.PROSPECCAO, 'hs_v2_date_entered_' + STAGE_OUTBOUND.CONECTADO, 'hs_v2_date_entered_' + STAGE_OUTBOUND.QUALIFICACAO, 'hs_v2_date_entered_' + STAGE_OUTBOUND.AGENDADO, 'hs_v2_date_entered_' + STAGE_OUTBOUND.REAGENDAMENTO];
-var DEAL_PROPS = ['dealname', 'dealstage', 'pipeline', 'sdr', 'amount', 'pre_vendas__reuniao_foi_efetiva', 'data_da_reuniao', 'pre_vendas__motivo_da_reuniao_nao_efetiva', 'tipo_de_reuniao', 'rota', 'estado', 'parceia_com_associacao__associacao', 'motivo_de_lost', 'createdate', 'closedate', 'hubspot_owner_id'].concat(STAGE_ENTERED_PROPS);
+var DEAL_PROPS = ['dealname', 'dealstage', 'pipeline', 'sdr', 'amount', 'pre_vendas__reuniao_foi_efetiva', 'data_da_reuniao', 'pre_vendas__motivo_da_reuniao_nao_efetiva', 'tipo_de_reuniao', 'rota', 'estado', 'parceia_com_associacao__associacao', 'motivo_de_lost', 'createdate', 'closedate', 'hubspot_owner_id', 'hs_v2_date_entered_150350640'].concat(STAGE_ENTERED_PROPS);
 var CACHE_FILE_NAME = 'painel_outbound_cache.json';
 
 function getToken_() {
@@ -65,6 +67,27 @@ return hubspotSearchAll_([{ filters: [
 ] }], DEAL_PROPS);
 }
 
+// Vendas de BDR que nao passaram pelo funil com tipo_de_reuniao: tipicamente o executivo marca o
+// negocio original como perdido e cria um novo "Adesao" na mao, com o BDR no campo sdr (V19).
+// Entram so nas tabelas de MRR (DATA.vendasExtras), nunca no funil/ranking/reunioes.
+function fetchVendasSemReuniao_() {
+var owners = Object.keys(BDR_OWNER_IDS);
+return hubspotSearchAll_([{ filters: [
+{ propertyName: 'pipeline', operator: 'EQ', value: PIPELINE_VENDAS },
+{ propertyName: 'sdr', operator: 'IN', values: owners },
+{ propertyName: 'dealstage', operator: 'IN', values: [STAGE_CONTRATO_ASSINADO, STAGE_CONCLUIDO] },
+{ propertyName: 'tipo_de_reuniao', operator: 'NOT_HAS_PROPERTY' }
+] }], DEAL_PROPS);
+}
+
+function isVendaFechada_(p) {
+return p.pipeline === PIPELINE_VENDAS && (p.dealstage === STAGE_CONTRATO_ASSINADO || p.dealstage === STAGE_CONCLUIDO);
+}
+
+function dataFechamento_(p) {
+return p.closedate || p['hs_v2_date_entered_' + STAGE_CONTRATO_ASSINADO] || null;
+}
+
 function fetchOwnersMap_() {
 var token = getToken_();
 var map = {};
@@ -121,6 +144,7 @@ function buildDashboardData() {
 var outbound = fetchOutboundDeals_();
 var graduated = fetchGraduatedDeals_();
 var all = outbound.concat(graduated);
+var vendasSemReuniao = fetchVendasSemReuniao_();
 var metas = getMetas_();
 var owners = fetchOwnersMap_();
 var efetivaIds = all.filter(function (d) { return d.properties.pre_vendas__reuniao_foi_efetiva === 'Sim'; }).map(function (d) { return d.id; });
@@ -163,15 +187,37 @@ reachedIdx: reachedIdx,
 stageDates: stageDates,
 isPerdido: isOutboundPipeline && stage === STAGE_OUTBOUND.PERDIDO, isReagendamento: isOutboundPipeline && stage === STAGE_OUTBOUND.REAGENDAMENTO,
 motivoLost: p.motivo_de_lost || null,
-isVenda: p.pipeline === PIPELINE_VENDAS && stage === STAGE_CONTRATO_ASSINADO,
+isVenda: isVendaFechada_(p),
 valor: parseFloat(p.amount || 0),
 dataCriacao: p.createdate || null,
-dataFechamento: p.closedate || null,
+dataFechamento: dataFechamento_(p),
 execVendas: (p.pipeline === PIPELINE_VENDAS && p.hubspot_owner_id) ? (owners[p.hubspot_owner_id] || null) : null
 });
 });
 
-return { geradoEm: new Date().toISOString(), metas: metas, deals: rows };
+var vendasExtras = [];
+vendasSemReuniao.forEach(function (deal) {
+var p = deal.properties;
+var bdrNome = BDR_OWNER_IDS[p.sdr];
+if (!bdrNome || !isVendaFechada_(p)) return;
+vendasExtras.push({
+id: deal.id,
+nome: p.dealname,
+bdr: bdrNome,
+origem: p.parceia_com_associacao__associacao ? p.parceia_com_associacao__associacao.split(' - ')[0] : 'Nenhuma',
+rota: p.rota || null,
+estado: p.estado || null,
+isVenda: true,
+somenteVenda: true,
+valor: parseFloat(p.amount || 0),
+dataReuniao: p.data_da_reuniao || null,
+dataCriacao: p.createdate || null,
+dataFechamento: dataFechamento_(p),
+execVendas: p.hubspot_owner_id ? (owners[p.hubspot_owner_id] || null) : null
+});
+});
+
+return { geradoEm: new Date().toISOString(), metas: metas, deals: rows, vendasExtras: vendasExtras };
 }
 
 function getOrCreateCacheFile_() {

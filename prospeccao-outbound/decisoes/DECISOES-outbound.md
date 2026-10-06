@@ -1,4 +1,4 @@
-# Dec## 05/10/2026 — Meta de outubro (Caio 38, Porto 42) + correção do MRR que sumia (Versão 19, pronta para aplicar)
+# Dec## 05/10/2026 — Meta de outubro (Caio 38, Porto 42) + correção do MRR que sumia (Versão 19, publicada 05/10 22:48)
 
 ### Meta de outubro/2026
 - Fonte: slide 36 da apresentação "Planejamento Metas" de outubro (Tassia, #pilar-crescimento, 30/09). É o mesmo número que a Mari postou como imagem no #passistas em 02/10. Prospecção = **80 passes válidos**: **Caio Louback 38** (−7% MoM), **Pedro Porto 42** (−9% MoM).
@@ -36,11 +36,14 @@ Pedro Porto: nenhuma faltando.
 - Consulta nova testada direto na API: devolve as 9 vendas sem tipo desde junho (R$ 9.511). Somadas aos R$ 999 do Contrato Assinado, dá os R$ 10.510.
 
 ### Pendências
-- [ ] Medir o desvio entre espelho e produção (hash de linha via Monaco) antes de aplicar.
-- [ ] METAS_JSON: acrescentar 2026-10.
-- [ ] Colar `docs/aplicar-v19.js` no console, salvar, rodar `refreshCache` e publicar Nova versão (V19).
-- [ ] Verificar ao vivo: card Atingimento "X válidas / meta 80"; MRR set/26 do Caio com 3 vendas (R$ 3.238).
-- [ ] Ressincronizar o espelho (`node docs/build-v19.js --write-mirror`) depois de publicar.
+- [x] Desvio entre espelho e produção medido por hash de linha via Monaco: Codigo.gs (247 linhas) e Index.html (793) **idênticos**.
+- [x] Patch aplicado pelo javascript_tool direto no Monaco (desta vez não foi bloqueado). Resultado: Codigo.gs com 293 linhas e Index.html com 795, com hash igual ao da versão gerada localmente. Projeto salvo.
+- [x] METAS_JSON: chave 2026-10 acrescentada; jul, ago e set intactos (relido depois de recarregar a página). Atenção: o form_input da extensão converteu o JSON em "[object Object]"; foi corrigido via setter nativo + evento input **antes** de salvar.
+- [x] refreshCache rodado pelo editor: "Cache atualizado: 1726 deals em 2026-10-06T01:46:38Z".
+- [x] **Versão 19 em 5 de out. de 2026, 22:48**, mesma implantação (AKfycbxcQCd3...), descrição "V19: MRR conta Contrato Assinado (150350640) e Concluido + vendas de BDR sem tipo_de_reuniao so nas tabelas de MRR; meta out/26".
+- [x] Verificação pelo cache publicado no Drive (o payload exato da dash): 1.726 deals + 197 vendasExtras; meta out = Caio 38 / Porto 42. MRR por mês de fechamento igual à apuração direta na API: set/26 Caio 3 vendas R$ 3.238, Modé 1 R$ 899, Porto 5 R$ 3.521, Roberta 1 R$ 529; out/26 Caio 1 R$ 1.599, Roberta 2 R$ 1.898. Nenhum vendasExtra carrega campo de reunião. Válidas de outubro até agora: Caio 3, Porto 3, Roberta 1 (essa sem meta).
+- [x] Espelho ressincronizado (build-v19.js --write-mirror).
+- [ ] Rodrigo conferir na tela: aba Cohort (tabelas de MRR) e card Atingimento "X válidas / meta 80". O iframe da dash não é legível pela automação.
 - [ ] Processo (fora da dash): o executivo cria um negócio novo em vez de reaproveitar o original. Vale alinhar com o comercial se isso é o padrão.
 
 ---
