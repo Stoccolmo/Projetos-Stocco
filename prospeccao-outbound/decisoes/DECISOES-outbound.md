@@ -1,4 +1,33 @@
-# Dec## 05/10/2026 — Meta de outubro (Caio 38, Porto 42) + correção do MRR que sumia (Versão 19, publicada 05/10 22:48)
+# Decisões — Painel Outbound (Dash Prospecção)
+
+Registro vivo das decisões, achados e pendências do painel de gestão Outbound (Google Apps Script + HubSpot direto). Ver também `docs/HANDOFF_DASH_PROSPECCAO.md` para arquitetura e histórico de bugs anteriores.
+
+---
+
+## 05/10/2026 (noite) — Tabelas da aba Cohort com janela fixa desde jun/26 (Versão 20, publicada 23:11)
+
+### Contexto
+Depois da V19, Rodrigo viu só 30 vendas nas tabelas de MRR, e não as 40 informadas. Não era erro: as tabelas da aba Cohort mostravam só os **últimos 4 meses** (jul–out), e as 40 eram contadas **desde junho**. Junho tem 10 vendas (Caio 5 · R$ 3.906, Modé 3 · R$ 1.877, Porto 1 · R$ 799, Roberta 1 · R$ 699). Na janela jul–out, a V19 levou o total de 23 para 30.
+
+### Decisão (Rodrigo, 05/10): incluir junho
+- `viewCohort` agora monta os meses a partir de **jun/26 até o mês atual**, em vez de `now.getMonth()-3 .. 0`. Assim junho não sai da tabela quando virar novembro, e a janela cresce um mês por vez.
+- Afeta as três tabelas da aba: Cohort de agendamentos por mês de criação, MRR por mês de agendamento e MRR por mês de venda.
+- Só front-end (`Index.html`, 1 linha). Sem `refreshCache`.
+
+### Método
+- Hash do arquivo inteiro antes da edição bateu com o espelho da V19 (Codigo.gs 293 linhas, Index.html 795). A edição foi feita no Monaco via `javascript_tool`, com âncora única. Depois da edição o hash bateu com o espelho atualizado (796 linhas).
+- **Incidente evitado:** na 1ª tentativa de publicar, os cliques por coordenada caíram no editor e o seletor de versão ficou em **"Versão 18"**. Publicar ali teria revertido a dash para a V18. Cancelei sem publicar e conferi que o código continuava intacto (hash). Na 2ª tentativa usei só `find`/`ref` e confirmei "Nova versão" + descrição por zoom antes de clicar em Implantar.
+- Obs.: a descrição da V19 não ficou gravada (a implantação aparecia como "Sem título"). A descrição da V20 cita as duas versões.
+
+### Também respondido a Rodrigo (05/10)
+"Caio com 11 passes válidos em outubro" **não se confirma** no HubSpot. São 11 reuniões com `data_da_reuniao` em outubro (12 contando o Passe 65266049285): **3 válidas** (65204387618, 65428793889, 65211182153), 5 já realizadas aguardando o executivo marcar a efetividade, 3 futuras (07, 09 e 13/10) e 1 em reagendamento (65211121492).
+
+### Pendências
+- [ ] Rodrigo conferir a aba Cohort na tela: as colunas devem ir de jun/26 a out/26, com total de 40 vendas na tabela por mês de venda.
+
+---
+
+## 05/10/2026 — Meta de outubro (Caio 38, Porto 42) + correção do MRR que sumia (Versão 19, publicada 05/10 22:48)
 
 ### Meta de outubro/2026
 - Fonte: slide 36 da apresentação "Planejamento Metas" de outubro (Tassia, #pilar-crescimento, 30/09). É o mesmo número que a Mari postou como imagem no #passistas em 02/10. Prospecção = **80 passes válidos**: **Caio Louback 38** (−7% MoM), **Pedro Porto 42** (−9% MoM).
@@ -45,35 +74,6 @@ Pedro Porto: nenhuma faltando.
 - [x] Espelho ressincronizado (build-v19.js --write-mirror).
 - [ ] Rodrigo conferir na tela: aba Cohort (tabelas de MRR) e card Atingimento "X válidas / meta 80". O iframe da dash não é legível pela automação.
 - [ ] Processo (fora da dash): o executivo cria um negócio novo em vez de reaproveitar o original. Vale alinhar com o comercial se isso é o padrão.
-
----
-
-## 05/10/2026 (noite) — Tabelas da aba Cohort com janela fixa desde jun/26 (Versão 20, publicada 23:11)
-
-### Contexto
-Depois da V19, Rodrigo viu só 30 vendas nas tabelas de MRR, e não as 40 informadas. Não era erro: as tabelas da aba Cohort mostravam só os **últimos 4 meses** (jul–out), e as 40 eram contadas **desde junho**. Junho tem 10 vendas (Caio 5 · R$ 3.906, Modé 3 · R$ 1.877, Porto 1 · R$ 799, Roberta 1 · R$ 699). Na janela jul–out, a V19 levou o total de 23 para 30.
-
-### Decisão (Rodrigo, 05/10): incluir junho
-- `viewCohort` agora monta os meses a partir de **jun/26 até o mês atual**, em vez de `now.getMonth()-3 .. 0`. Assim junho não sai da tabela quando virar novembro, e a janela cresce um mês por vez.
-- Afeta as três tabelas da aba: Cohort de agendamentos por mês de criação, MRR por mês de agendamento e MRR por mês de venda.
-- Só front-end (`Index.html`, 1 linha). Sem `refreshCache`.
-
-### Método
-- Hash do arquivo inteiro antes da edição bateu com o espelho da V19 (Codigo.gs 293 linhas, Index.html 795). A edição foi feita no Monaco via `javascript_tool`, com âncora única. Depois da edição o hash bateu com o espelho atualizado (796 linhas).
-- **Incidente evitado:** na 1ª tentativa de publicar, os cliques por coordenada caíram no editor e o seletor de versão ficou em **"Versão 18"**. Publicar ali teria revertido a dash para a V18. Cancelei sem publicar e conferi que o código continuava intacto (hash). Na 2ª tentativa usei só `find`/`ref` e confirmei "Nova versão" + descrição por zoom antes de clicar em Implantar.
-- Obs.: a descrição da V19 não ficou gravada (a implantação aparecia como "Sem título"). A descrição da V20 cita as duas versões.
-
-### Também respondido a Rodrigo (05/10)
-"Caio com 11 passes válidos em outubro" **não se confirma** no HubSpot. São 11 reuniões com `data_da_reuniao` em outubro (12 contando o Passe 65266049285): **3 válidas** (65204387618, 65428793889, 65211182153), 5 já realizadas aguardando o executivo marcar a efetividade, 3 futuras (07, 09 e 13/10) e 1 em reagendamento (65211121492).
-
-### Pendências
-- [ ] Rodrigo conferir a aba Cohort na tela: as colunas devem ir de jun/26 a out/26, com total de 40 vendas na tabela por mês de venda.
-
----
-
-isões — Painel Outbound (Dash Prospecção)
-
-Registro vivo das decisões, achados e pendências do painel de gestão Outbound (Google Apps Script + HubSpot direto). Ver também `docs/HANDOFF_DASH_PROSPECCAO.md` para arquitetura e histórico de bugs anteriores.
 
 ---
 
