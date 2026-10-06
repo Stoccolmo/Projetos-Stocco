@@ -1,4 +1,51 @@
-# Decisões — Painel Outbound (Dash Prospecção)
+# Dec## 05/10/2026 — Meta de outubro (Caio 38, Porto 42) + correção do MRR que sumia (Versão 19, pronta para aplicar)
+
+### Meta de outubro/2026
+- Fonte: slide 36 da apresentação "Planejamento Metas" de outubro (Tassia, #pilar-crescimento, 30/09). É o mesmo número que a Mari postou como imagem no #passistas em 02/10. Prospecção = **80 passes válidos**: **Caio Louback 38** (−7% MoM), **Pedro Porto 42** (−9% MoM).
+- Roberta Lobasso vai para Qualificação (inbound) em outubro por causa das férias da Giovanna Garcia. João Pedro Modé saiu da empresa. Os dois **não recebem meta de outubro** no Outbound (decisão de Rodrigo, 05/10).
+- Lançamento: acrescentar a chave `"2026-10": {"Caio Louback": 38, "Pedro Porto": 42}` ao `METAS_JSON` **sem tocar** em jun–set, e depois rodar `refreshCache`. Como `BDR_NAMES` é a união das chaves de todos os meses, Roberta e Modé continuam no filtro de vendedor para consultar o histórico.
+
+### MRR sumindo — diagnóstico (API do HubSpot, todos os 2.513 negócios com sdr = BDR)
+Exemplo trazido pelo Caio: [64432702345](https://app.hubspot.com/contacts/23636141/record/0-3/64432702345) (Av. das Américas 13750). Esse negócio **nunca foi assinado**: passou de Envio de Proposta para **Negócio perdido** em 28/09 (Pedro Bittencourt). No mesmo dia o executivo criou um negócio novo para o mesmo endereço, o **65308917137** (R$ 1.599, sdr = Caio, Concluído em 29/09), **sem `tipo_de_reuniao`**. Em 05/10 surgiu outro igual, o 65664121425 (R$ 1.599).
+
+Duas falhas no `Codigo.gs`:
+1. `fetchGraduatedDeals_` exige `tipo_de_reuniao` preenchido. Por isso o negócio que o executivo cria na mão não entra.
+2. `STAGE_CONTRATO_ASSINADO = '150350641'` é, na verdade, o **Concluído**. O Contrato Assinado real é `150350640`. Até agora, contrato assinado ainda não concluído não contava como venda.
+
+Desde junho: **40 vendas** de BDR, sendo que a dash contava **30 (R$ 22.433)** e perdia **10 (R$ 10.510)**:
+
+| Mês (fechamento) | Faltando |
+|---|---|
+| jun/26 | Modé 2 (R$ 1.078) |
+| jul/26 | Modé R$ 2.489 · Roberta R$ 549 |
+| ago/26 | Roberta R$ 399 |
+| set/26 | Caio R$ 1.599 · Modé R$ 899 |
+| out/26 | Caio R$ 1.599 · Roberta R$ 899 + R$ 999 (Contrato Assinado, ainda não concluído) |
+
+Pedro Porto: nenhuma faltando.
+
+### Decisão (Rodrigo, 05/10): aplicar a correção
+- Venda = pipeline Vendas 2.0 em **Contrato Assinado ou Concluído** com BDR no `sdr`.
+- Os negócios sem `tipo_de_reuniao` vêm numa consulta própria (`fetchVendasSemReuniao_`) e vão para `DATA.vendasExtras`, que só as **duas tabelas de MRR** da aba Cohort leem. Eles **não entram** no funil, no ranking nem na contagem de reuniões, para a reunião não contar duas vezes. A do Caio já contou em agosto, no negócio original; o negócio novo tem `pre_vendas__reuniao_foi_efetiva = Sim` e, se entrasse em `deals`, viraria uma reunião válida falsa em setembro.
+- `dataFechamento` = `closedate` ou, se estiver vazio, a data de entrada em Contrato Assinado.
+- Limitação: esses negócios não têm `data_da_reuniao`, então só aparecem na tabela **por mês de venda**, não na **por mês de agendamento**. A tooltip explica isso.
+- Impacto: só as tabelas de MRR mudam (jun a set sobem). Reunião válida, que é a base da variável, não muda.
+
+### Artefatos
+- `docs/build-v19.js`: 8 hunks (7 no Codigo.gs, 1 no Index.html), todos com âncora única no espelho e sintaxe do Codigo.gs checada. Gera `docs/aplicar-v19.js` (aplicador de console, mesmo padrão da V18, que aborta se algum hunk não casar 1×).
+- Consulta nova testada direto na API: devolve as 9 vendas sem tipo desde junho (R$ 9.511). Somadas aos R$ 999 do Contrato Assinado, dá os R$ 10.510.
+
+### Pendências
+- [ ] Medir o desvio entre espelho e produção (hash de linha via Monaco) antes de aplicar.
+- [ ] METAS_JSON: acrescentar 2026-10.
+- [ ] Colar `docs/aplicar-v19.js` no console, salvar, rodar `refreshCache` e publicar Nova versão (V19).
+- [ ] Verificar ao vivo: card Atingimento "X válidas / meta 80"; MRR set/26 do Caio com 3 vendas (R$ 3.238).
+- [ ] Ressincronizar o espelho (`node docs/build-v19.js --write-mirror`) depois de publicar.
+- [ ] Processo (fora da dash): o executivo cria um negócio novo em vez de reaproveitar o original. Vale alinhar com o comercial se isso é o padrão.
+
+---
+
+isões — Painel Outbound (Dash Prospecção)
 
 Registro vivo das decisões, achados e pendências do painel de gestão Outbound (Google Apps Script + HubSpot direto). Ver também `docs/HANDOFF_DASH_PROSPECCAO.md` para arquitetura e histórico de bugs anteriores.
 
