@@ -54,17 +54,17 @@ Pedro Porto: nenhuma faltando.
 Depois da V19, Rodrigo viu só 30 vendas nas tabelas de MRR, e não as 40 informadas. Não era erro: as tabelas da aba Cohort mostravam só os **últimos 4 meses** (jul–out), e as 40 eram contadas **desde junho**. Junho tem 10 vendas (Caio 5 · R$ 3.906, Modé 3 · R$ 1.877, Porto 1 · R$ 799, Roberta 1 · R$ 699). Na janela jul–out, a V19 levou o total de 23 para 30.
 
 ### Decisão (Rodrigo, 05/10): incluir junho
--  agora monta os meses a partir de **jun/26 até o mês atual**, em vez de . Assim junho não sai da tabela quando virar novembro, e a janela cresce um mês por vez.
+- `viewCohort` agora monta os meses a partir de **jun/26 até o mês atual**, em vez de `now.getMonth()-3 .. 0`. Assim junho não sai da tabela quando virar novembro, e a janela cresce um mês por vez.
 - Afeta as três tabelas da aba: Cohort de agendamentos por mês de criação, MRR por mês de agendamento e MRR por mês de venda.
-- Só front-end (, 1 linha). Sem .
+- Só front-end (`Index.html`, 1 linha). Sem `refreshCache`.
 
 ### Método
-- Hash do arquivo inteiro antes da edição bateu com o espelho da V19 (Codigo.gs 293 linhas, Index.html 795). A edição foi feita no Monaco via , com âncora única. Depois da edição o hash bateu com o espelho atualizado (796 linhas).
-- **Incidente evitado:** na 1ª tentativa de publicar, os cliques por coordenada caíram no editor e o seletor de versão ficou em **"Versão 18"**. Publicar ali teria revertido a dash para a V18. Cancelei sem publicar e conferi que o código continuava intacto (hash). Na 2ª tentativa usei só / e confirmei "Nova versão" + descrição por zoom antes de clicar em Implantar.
+- Hash do arquivo inteiro antes da edição bateu com o espelho da V19 (Codigo.gs 293 linhas, Index.html 795). A edição foi feita no Monaco via `javascript_tool`, com âncora única. Depois da edição o hash bateu com o espelho atualizado (796 linhas).
+- **Incidente evitado:** na 1ª tentativa de publicar, os cliques por coordenada caíram no editor e o seletor de versão ficou em **"Versão 18"**. Publicar ali teria revertido a dash para a V18. Cancelei sem publicar e conferi que o código continuava intacto (hash). Na 2ª tentativa usei só `find`/`ref` e confirmei "Nova versão" + descrição por zoom antes de clicar em Implantar.
 - Obs.: a descrição da V19 não ficou gravada (a implantação aparecia como "Sem título"). A descrição da V20 cita as duas versões.
 
 ### Também respondido a Rodrigo (05/10)
-"Caio com 11 passes válidos em outubro" **não se confirma** no HubSpot. São 11 reuniões com  em outubro (12 contando o Passe 65266049285): **3 válidas** (65204387618, 65428793889, 65211182153), 5 já realizadas aguardando o executivo marcar a efetividade, 3 futuras (07, 09 e 13/10) e 1 em reagendamento.
+"Caio com 11 passes válidos em outubro" **não se confirma** no HubSpot. São 11 reuniões com `data_da_reuniao` em outubro (12 contando o Passe 65266049285): **3 válidas** (65204387618, 65428793889, 65211182153), 5 já realizadas aguardando o executivo marcar a efetividade, 3 futuras (07, 09 e 13/10) e 1 em reagendamento (65211121492).
 
 ### Pendências
 - [ ] Rodrigo conferir a aba Cohort na tela: as colunas devem ir de jun/26 a out/26, com total de 40 vendas na tabela por mês de venda.
