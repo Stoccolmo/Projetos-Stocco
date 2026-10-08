@@ -39,7 +39,9 @@ function sincronizarNeoCrescimento() {
   var owners = obterMapaOwners_();
   var cutoffMs = new Date(CUTOFF_ISO + 'T00:00:00Z').getTime();
   var PROP_DATA_OUT = 'hs_v2_date_entered_194331064'; // "Agendado (Pré-vendas (BDR))" — data reunião outbound
-  var props = ['hs_object_id', 'dealname', 'createdate', PROP_SDR, PROP_DATA_REU, PROP_EFETIVA, PROP_DATA_OUT];
+  // V22: entrada nas etapas Validação/Prospecção do funil Outbound (905667466) = negócio veio do Outbound
+  var PROPS_OUTBOUND = ['hs_v2_date_entered_1371354117', 'hs_v2_date_entered_1371354118'];
+  var props = ['hs_object_id', 'dealname', 'createdate', PROP_SDR, PROP_DATA_REU, PROP_EFETIVA, PROP_DATA_OUT].concat(PROPS_OUTBOUND);
 
   var linhas = [], after = null, paginas = 0;
   do {
@@ -63,7 +65,8 @@ function sincronizarNeoCrescimento() {
       var p = d.properties || {};
     var reuniao = _d_(p[PROP_DATA_REU]) || _d_(p[PROP_DATA_OUT]);
       if (!reuniao) return;
-      var nome = owners[String(p[PROP_SDR])] || '';
+      var veioDoOutbound = !!(p[PROP_DATA_OUT] || p[PROPS_OUTBOUND[0]] || p[PROPS_OUTBOUND[1]]);
+      var nome = donoNoInbound_(owners[String(p[PROP_SDR])] || '', reuniao, veioDoOutbound); // V22
       var linha = new Array(17).fill('');
       linha[0]  = p.hs_object_id || d.id || '';
       linha[2]  = nome;

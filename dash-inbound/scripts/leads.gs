@@ -27,7 +27,7 @@ function exportarLeadsParaSheets() {
     var json = JSON.parse(resp.getContentText());
     (json.results || []).forEach(function (l) {
       var p = l.properties || {};
-      var dono = owners[String(p.hubspot_owner_id)] || '';
+      var dono = donoNoInbound_(owners[String(p.hubspot_owner_id)] || '', d_(p.hs_createdate), false); // V22
       linhas.push([ l.id || '', p.hs_lead_name || '',
         d_(p.data_de_entrada_em_prospeccao), d_(p.data_de_entrada_em_conectado),
         d_(p.data_de_entrada_em_reuniao_agendada), d_(p.data_de_entrada_em_ganho),

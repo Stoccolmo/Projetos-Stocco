@@ -4,6 +4,51 @@ Registro vivo das decisões, achados e pendências do dashboard de Pré-Vendas I
 
 ---
 
+## 08/10/2026 — Meta de outubro + Roberta Lobasso de volta ao Inbound só a partir de out/26 (V22, em andamento)
+
+### Metas de outubro/2026 (Qualificação)
+Fonte: slide 36 da apresentação "Planejamento Metas" de outubro (Tassia, #pilar-crescimento, 30/09). A Mari postou a mesma meta como imagem no #passistas em 02/10.
+
+| Pré-vendedor | Set/26 | **Out/26** |
+|---|---|---|
+| Eduarda de Barros | 104 | **98** |
+| Giovanna Garcia | 140 | **42** (férias) |
+| Pedro Dias | 104 | **98** |
+| Roberta Lobasso | — | **133** |
+| Vitória Miranda | 83 | **78** |
+| **Total** | 431 | **449** |
+
+### Pedido de Rodrigo
+A Roberta entra no Inbound em outubro (cobrindo as férias da Giovanna). Na dash, os dados dela entram **somente a partir deste mês**, e os dados de outbound dela não podem aparecer de jeito nenhum.
+
+### Achados (API do HubSpot, 08/10)
+- A Roberta foi **Inbound em jan–jun/26** (metas 110/84/65/20/25/16 na aba "Meta Pré vendedor") e **Outbound em jun–set/26**. Desde 10/08 (V15) estava em `VENDEDORES_EXCLUIDOS_` e fora do Compilado.
+- Negócios com sdr = Roberta e Passe ≥ 01/09: **32 de outbound em setembro**; em outubro, **32 de inbound + 1 de outbound** (65354925313, criado em 28/09 no funil Outbound, Passe em 10/10). Por isso o corte não pode ser só por mês.
+- Leads (0-136) dela: **4.488 criados antes de out/26** (inbound de jan–mai e alguns de jun–set) e **107 desde 01/10** (todos de Marketing/Comunidade).
+- A dash monta tudo a partir do roster = linhas do "Compilado de Passes". Colocar a Roberta no Compilado sem limpar as bases faria a timeline e o cohort enxergarem os 32 passes de outbound de setembro.
+- A planilha "A Verdade - Variável" importa direto do HubSpot (aba PV) e **não** usa estas bases. A variável não é afetada.
+
+### Decisão e implementação (V22)
+- `Utils.gs`: `INICIO_NO_INBOUND_ = {'Roberta Lobasso': '2026-10-01'}` e `donoNoInbound_(nome, data, veioDoOutbound)`, que devolve o nome vazio para linha anterior à data de entrada **ou** negócio que passou pelo funil Outbound.
+- `SyncNeo.gs`: lê `hs_v2_date_entered_1371354117/1371354118` (Validação/Prospecção do funil 905667466) + `hs_v2_date_entered_194331064` (Outbound legado) para identificar negócio de outbound, e aplica `donoNoInbound_` na coluna do pré-vendedor.
+- `leads.gs`: aplica `donoNoInbound_` ao dono do lead pela data de criação.
+- **As linhas não são apagadas**, só ficam sem dono. Como a Roberta já estava fora do roster, essas linhas já não contavam para ninguém, e os totais de todos os meses anteriores ficam idênticos. Isso inclui o "Lead" total do funil, que conta todas as linhas.
+- `Index.html`: Roberta sai de `VENDEDORES_EXCLUIDOS_` (fica só o Luiz).
+- `docs/build-v22.js`: 5 hunks com âncora única, sintaxe dos .gs checada e regra testada em 6 casos (inclusive o 65354925313). Gera `docs/aplicar-v22.js`.
+
+### Execução (08/10)
+- [x] Desvio entre espelho e produção medido por hash: 8 arquivos idênticos. No `leads.gs` só difere a linha 5 (o token, que no repo fica REDACTED).
+- [x] Hunks aplicados no Monaco via javascript_tool. O hash de Utils/SyncNeo/Index bate com o espelho atualizado. Projeto salvo.
+- [x] `sincronizarNeoCrescimento` rodado: 4.063 passes; "Passes Do Mês" e Cohort também rodaram (ainda com 4 vendedoras).
+- [x] `exportarLeadsParaSheets` rodado: 41.308 leads.
+- [x] Verificado via gviz: na Neo, a Roberta só aparece em **2026-10 (32 passes)** e o 65354925313 está sem dono; na Base Leads, só em **2026-10 (107 leads)**.
+- [x] "Compilado de Passes": inserida uma linha vazia na posição 5 (entre Pedro Dias e Vitória). Inofensiva: o `lerCompilado_` ignora linha sem nome e o Total seguiu 431.
+- [ ] **Bloqueado para automação** (o classificador barrou copiar/colar a linha na planilha oficial): copiar a linha 6 (Vitória) para a linha 5, colocar "Roberta Lobasso" em A5 e atualizar a Meta Time (col B): Eduarda 98, Giovanna 42, Pedro 98, Roberta 133, Vitória 78. O Total deve fechar em 449.
+- [ ] "Meta Pré vendedor", col K (01/10/2026): 98 / 42 / — / 98 / 133 / — / — / — / 78 (linhas Eduarda, Giovanna, Luiz, Pedro, Roberta, Porto, Caio, Modé, Vitória).
+- [ ] Rodar "Atualizar dados" / Cohort de novo com 5 vendedoras, publicar a V22 e conferir na tela.
+
+---
+
 ## 05/08/2026 — Meta de agosto, novas dimensões (Origem, Online vs Presencial) e achado de token exposto
 
 ### Contexto

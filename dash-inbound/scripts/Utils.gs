@@ -29,6 +29,21 @@ function normalizarVendedor(nome) {
   return ALIASES_VENDEDOR[chave] || String(nome).trim();
 }
 
+// V22 (08/10/2026): pre-vendedor que veio do Outbound so conta no Inbound a partir da data de
+// entrada no time. Antes dela, e em qualquer negocio que passou pelo funil Outbound, o dono e
+// gravado VAZIO nas bases (Neo Crescimento e Base Leads). A linha continua na base, entao os
+// totais de meses anteriores nao mudam. Roberta: Inbound jan-jun/26, Outbound jun-set/26, volta out/26.
+var INICIO_NO_INBOUND_ = { 'Roberta Lobasso': '2026-10-01' };
+function donoNoInbound_(nome, data, veioDoOutbound) {
+  var ini = INICIO_NO_INBOUND_[nome];
+  if (!ini) return nome;
+  if (veioDoOutbound) return '';
+  var dt = (data instanceof Date) ? data : (data ? new Date(data) : null);
+  if (!dt || isNaN(dt.getTime())) return '';
+  var p = ini.split('-');
+  return dt >= new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])) ? nome : '';
+}
+
 function parseDataISO_(iso) {
   // "2026-04-30" → Date local (00:00 hora local do script)
   if (!iso) return null;
