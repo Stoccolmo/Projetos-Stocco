@@ -4,7 +4,7 @@ Registro vivo das decisões, achados e pendências do dashboard de Pré-Vendas I
 
 ---
 
-## 08/10/2026 — Meta de outubro + Roberta Lobasso de volta ao Inbound só a partir de out/26 (V22, em andamento)
+## 08/10/2026 — Meta de outubro + Roberta Lobasso de volta ao Inbound sem nenhum dado de outbound (V22)
 
 ### Metas de outubro/2026 (Qualificação)
 Fonte: slide 36 da apresentação "Planejamento Metas" de outubro (Tassia, #pilar-crescimento, 30/09). A Mari postou a mesma meta como imagem no #passistas em 02/10.
@@ -18,34 +18,45 @@ Fonte: slide 36 da apresentação "Planejamento Metas" de outubro (Tassia, #pila
 | Vitória Miranda | 83 | **78** |
 | **Total** | 431 | **449** |
 
-### Pedido de Rodrigo
-A Roberta entra no Inbound em outubro (cobrindo as férias da Giovanna). Na dash, os dados dela entram **somente a partir deste mês**, e os dados de outbound dela não podem aparecer de jeito nenhum.
+### Pedido de Rodrigo (08/10)
+1. A Roberta entra no Inbound em outubro, cobrindo as férias da Giovanna. Os dados de **outbound** dela não podem entrar na dash de jeito nenhum.
+2. (Ajuste no mesmo dia) O histórico de **inbound** dela (jan–mai/26) deve continuar visível, para análises de períodos passados.
+3. Pergunta dele: o repasse da carteira da Giovanna para a Roberta estraga as análises e a conversão? → Sim, no funil de leads. Corrigido abaixo.
 
-### Achados (API do HubSpot, 08/10)
-- A Roberta foi **Inbound em jan–jun/26** (metas 110/84/65/20/25/16 na aba "Meta Pré vendedor") e **Outbound em jun–set/26**. Desde 10/08 (V15) estava em `VENDEDORES_EXCLUIDOS_` e fora do Compilado.
-- Negócios com sdr = Roberta e Passe ≥ 01/09: **32 de outbound em setembro**; em outubro, **32 de inbound + 1 de outbound** (65354925313, criado em 28/09 no funil Outbound, Passe em 10/10). Por isso o corte não pode ser só por mês.
-- Leads (0-136) dela: **4.488 criados antes de out/26** (inbound de jan–mai e alguns de jun–set) e **107 desde 01/10** (todos de Marketing/Comunidade).
-- A dash monta tudo a partir do roster = linhas do "Compilado de Passes". Colocar a Roberta no Compilado sem limpar as bases faria a timeline e o cohort enxergarem os 32 passes de outbound de setembro.
-- A planilha "A Verdade - Variável" importa direto do HubSpot (aba PV) e **não** usa estas bases. A variável não é afetada.
+### Achados (API do HubSpot)
+- A Roberta foi Inbound em jan–mai/26 (metas 110/84/65/20/25 na matriz; 16 em jun) e **Outbound em jun–set/26**. Desde 10/08 (V15) ela estava em `VENDEDORES_EXCLUIDOS_` e fora do Compilado.
+- **Negócios** com sdr = Roberta, por mês do Passe: inbound 75/72/57/26/13 (jan–mai), 1 (jun), 33 (out); outbound 15/25/26/32 (jun–set) + 1 (out, o 65354925313, criado em 28/09 no funil Outbound com Passe em 10/10). O marcador "passou pelo funil Outbound" (`hs_v2_date_entered_1371354117/118` e o legado `194331064`) separa os dois grupos 100%. Nenhuma das 4 SDRs de inbound tem negócio com esse marcador.
+- **Leads** no nome dela criados em jun–set/26: 113, e **todos foram passados a ela só em outubro**. 105 eram da **Giovanna** (repasse da carteira em 01/10 via INTEGRATION, mais alguns por automação em 06/10) e 8 não tinham dono. Como a Base Leads usa o dono ATUAL, desde 01/10 esses leads tinham sumido do funil de jun–set da Giovanna, com cerca de 46 LAV, 36 conectados e 33 agendados. Apenas 5 eventos desses leads aconteceram em outubro (1 LAV, 3 conectados, 1 agendado).
+- Passes, reunião válida, meta e variável usam o `sdr` do **negócio**, que o repasse de lead não altera. A planilha "A Verdade - Variável" importa direto do HubSpot e não usa estas bases.
 
-### Decisão e implementação (V22)
-- `Utils.gs`: `INICIO_NO_INBOUND_ = {'Roberta Lobasso': '2026-10-01'}` e `donoNoInbound_(nome, data, veioDoOutbound)`, que devolve o nome vazio para linha anterior à data de entrada **ou** negócio que passou pelo funil Outbound.
-- `SyncNeo.gs`: lê `hs_v2_date_entered_1371354117/1371354118` (Validação/Prospecção do funil 905667466) + `hs_v2_date_entered_194331064` (Outbound legado) para identificar negócio de outbound, e aplica `donoNoInbound_` na coluna do pré-vendedor.
-- `leads.gs`: aplica `donoNoInbound_` ao dono do lead pela data de criação.
-- **As linhas não são apagadas**, só ficam sem dono. Como a Roberta já estava fora do roster, essas linhas já não contavam para ninguém, e os totais de todos os meses anteriores ficam idênticos. Isso inclui o "Lead" total do funil, que conta todas as linhas.
-- `Index.html`: Roberta sai de `VENDEDORES_EXCLUIDOS_` (fica só o Luiz).
-- `docs/build-v22.js`: 5 hunks com âncora única, sintaxe dos .gs checada e regra testada em 6 casos (inclusive o 65354925313). Gera `docs/aplicar-v22.js`.
+### Regra implementada (V22)
+- `Utils.gs`: `PERIODO_NO_OUTBOUND_ = {'Roberta Lobasso': ['2026-06-01','2026-09-30']}` + `donoNoInbound_(nome, data, veioDoOutbound)`, que devolve vazio para negócio que passou pelo Outbound ou para linha com data dentro do período de outbound.
+- `SyncNeo.gs`: o negócio sai **só pelo marcador de Outbound** (o passe de inbound de junho fica).
+- `leads.gs`: o lead criado no período de outbound do dono atual sai do nome dele e `devolverDonoAnterior_` o devolve para **quem era o dono antes do repasse**, lendo o histórico de `hubspot_owner_id` (batch/read com histórico aceita no **máximo 50** registros; com 51 dá HTTP 400, testado). Sem dono anterior, fica vazio.
+- **Nenhuma linha é apagada** das bases. O "Lead" total do funil (que conta todas as linhas) não muda em mês nenhum.
+- `Index.html`: a Roberta sai de `VENDEDORES_EXCLUIDOS_`.
+- Consequência esperada: os totais do time em **jan–mai/26 sobem**, porque a Roberta volta a ser somada. É o histórico correto: ela era do time e a meta do time naqueles meses já incluía a parte dela. A conversão de jun–set da Giovanna volta a ser a real. Efeito colateral aceito: os 5 eventos de outubro nos leads repassados ficam com a Giovanna, porque a base tem um único dono por lead.
 
 ### Execução (08/10)
-- [x] Desvio entre espelho e produção medido por hash: 8 arquivos idênticos. No `leads.gs` só difere a linha 5 (o token, que no repo fica REDACTED).
-- [x] Hunks aplicados no Monaco via javascript_tool. O hash de Utils/SyncNeo/Index bate com o espelho atualizado. Projeto salvo.
-- [x] `sincronizarNeoCrescimento` rodado: 4.063 passes; "Passes Do Mês" e Cohort também rodaram (ainda com 4 vendedoras).
-- [x] `exportarLeadsParaSheets` rodado: 41.308 leads.
-- [x] Verificado via gviz: na Neo, a Roberta só aparece em **2026-10 (32 passes)** e o 65354925313 está sem dono; na Base Leads, só em **2026-10 (107 leads)**.
-- [x] "Compilado de Passes": inserida uma linha vazia na posição 5 (entre Pedro Dias e Vitória). Inofensiva: o `lerCompilado_` ignora linha sem nome e o Total seguiu 431.
-- [ ] **Bloqueado para automação** (o classificador barrou copiar/colar a linha na planilha oficial): copiar a linha 6 (Vitória) para a linha 5, colocar "Roberta Lobasso" em A5 e atualizar a Meta Time (col B): Eduarda 98, Giovanna 42, Pedro 98, Roberta 133, Vitória 78. O Total deve fechar em 449.
-- [ ] "Meta Pré vendedor", col K (01/10/2026): 98 / 42 / — / 98 / 133 / — / — / — / 78 (linhas Eduarda, Giovanna, Luiz, Pedro, Roberta, Porto, Caio, Modé, Vitória).
-- [ ] Rodar "Atualizar dados" / Cohort de novo com 5 vendedoras, publicar a V22 e conferir na tela.
+- [x] Desvio entre espelho e produção medido por hash antes de editar: os 9 arquivos idênticos (no `leads.gs`, só o token da linha 5 difere, e no repo ele fica REDACTED).
+- [x] Patches aplicados no Monaco via javascript_tool (`docs/build-v22.js` + `docs/build-v22b.js`). Depois de cada etapa, hash de todos os arquivos igual ao espelho. Projeto salvo.
+- [x] Bases sincronizadas: Neo 4.067 passes; Base Leads 41.313 leads; "devolverDonoAnterior_: 105 de 113 leads devolvidos ao dono anterior".
+- [x] Planilha: com a tela de Rodrigo bloqueada, a edição foi feita por uma **função temporária** (`docs/aplicar-metas-out26.gs`), que validava o layout antes de escrever. Na 1ª execução ela abortou sem escrever nada, porque achou um checkbox FALSE na col O da linha inserida; a validação foi restrita a A:N. Ela copiou as fórmulas da linha da Vitória para a linha 5, gravou "Roberta Lobasso" e as metas da col B, e preencheu a col K da "Meta Pré vendedor". Depois foi removida, e o `Utils.gs` voltou ao hash do espelho.
+- [x] Cohort refeito: "2 cohorts | 5 vendedores".
+- [ ] **Publicar a V22.** Bloqueado enquanto a tela estiver travada: o menu Implantar não abre em página oculta, e não arrisco publicar às cegas (no Outbound o seletor de versão já ficou em uma versão antiga).
+
+### Teste lógico (08/10, ~13h) — bases × HubSpot direto
+| Verificação | Resultado |
+|---|---|
+| Neo × HubSpot, por pré-vendedora × mês (jan–out/26), regra aplicada no HubSpot | **47/47 células iguais** |
+| Roberta na Neo em jun–set | só 1 em jun (o passe de inbound); jul–set = 0 |
+| 65354925313 (outbound, Passe 10/10) na Neo | presente, **sem dono** |
+| Negócios com marcador de Outbound nas 4 SDRs de inbound | 0 |
+| Base Leads × HubSpot (dono atual, e a Giovanna somando os devolvidos), por pré-vendedora × mês | **50/50** (a única divergência aparente, Giovanna set 295 × 293, eram 2 leads criados em 30/09 às 21h30 e 22h46 de Brasília, que viram 01/10 em UTC; a planilha está certa) |
+| Roberta na Base Leads em jun–set | 0 |
+| Compilado: Roberta realizado 18 + a validar 14 + 1 "Não" = 33 = passes de inbound dela em out | ok |
+| Compilado: soma das linhas = Total (meta 449, realizado 82) | ok |
+| Matriz col K | 98/42/—/98/133/—/—/—/78 → 449 |
 
 ---
 

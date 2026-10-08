@@ -19,6 +19,7 @@ function exportarLeadsParaSheets() {
 
   // 1) Busca TODOS os leads (acumula antes de escrever — se falhar no meio, a aba não é apagada)
   var linhas = [], after = null, paginas = 0;
+  var pendentes = []; // V22: linhas cujo dono atual nao vale para aquela data (ver devolverDonoAnterior_)
   do {
     var resp = UrlFetchApp.fetch(baseUrl + (after ? '&after=' + after : ''),
       { headers: { 'Authorization': 'Bearer ' + LEADS_TOKEN_ }, muteHttpExceptions: true });
@@ -27,7 +28,9 @@ function exportarLeadsParaSheets() {
     var json = JSON.parse(resp.getContentText());
     (json.results || []).forEach(function (l) {
       var p = l.properties || {};
-      var dono = donoNoInbound_(owners[String(p.hubspot_owner_id)] || '', d_(p.hs_createdate), false); // V22
+      var donoAtual = owners[String(p.hubspot_owner_id)] || '';
+      var dono = donoNoInbound_(donoAtual, d_(p.hs_createdate), false); // V22
+      if (donoAtual && !dono) pendentes.push(linhas.length);
       linhas.push([ l.id || '', p.hs_lead_name || '',
         d_(p.data_de_entrada_em_prospeccao), d_(p.data_de_entrada_em_conectado),
         d_(p.data_de_entrada_em_reuniao_agendada), d_(p.data_de_entrada_em_ganho),
@@ -38,6 +41,7 @@ function exportarLeadsParaSheets() {
     after = (json.paging && json.paging.next) ? json.paging.next.after : null;
     paginas++;
   } while (after && paginas < 1500);
+  devolverDonoAnterior_(linhas, pendentes, owners); // V22
   sincronizarExecutivoDeVendas_(linhas, owners);
 
   // 2) Só agora reescreve (preserva o cabeçalho da linha 1)
@@ -139,6 +143,34 @@ function d_(v) {
   if (!v) return '';
   var dt = /^\d+$/.test(String(v)) ? new Date(Number(v)) : new Date(v);
   return isNaN(dt.getTime()) ? '' : dt;
+}
+
+// V22 (08/10/2026): lead criado num periodo em que o dono ATUAL nao estava no Inbound (ex.: carteira
+// da Giovanna repassada a Roberta em 01/10/26, leads criados jun-set) volta para quem era o dono
+// antes do repasse, lido no historico de hubspot_owner_id. Sem dono anterior, fica vazio.
+// Assim o funil de jun-set da Giovanna nao perde os leads que ela trabalhou.
+function devolverDonoAnterior_(linhas, pendentes, owners) {
+  var ok = 0;
+  for (var i = 0; i < pendentes.length; i += 50) { // batch/read com historico aceita no maximo 50
+    var lote = pendentes.slice(i, i + 50);
+    var resp = UrlFetchApp.fetch('https://api.hubapi.com/crm/v3/objects/0-136/batch/read', {
+      method: 'post', contentType: 'application/json',
+      headers: { 'Authorization': 'Bearer ' + LEADS_TOKEN_ },
+      payload: JSON.stringify({ inputs: lote.map(function (k) { return { id: String(linhas[k][0]) }; }),
+        properties: ['hubspot_owner_id'], propertiesWithHistory: ['hubspot_owner_id'] }),
+      muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) { Logger.log('AVISO devolverDonoAnterior_ HTTP ' + resp.getResponseCode()); continue; }
+    var anterior = {};
+    (JSON.parse(resp.getContentText()).results || []).forEach(function (r) {
+      var h = (r.propertiesWithHistory && r.propertiesWithHistory.hubspot_owner_id) || []; // mais recente primeiro
+      var atual = h.length ? h[0].value : '';
+      for (var j = 1; j < h.length; j++) {
+        if (h[j].value && h[j].value !== atual) { anterior[r.id] = owners[String(h[j].value)] || ''; break; }
+      }
+    });
+    lote.forEach(function (k) { var nome = anterior[String(linhas[k][0])] || ''; linhas[k][12] = nome; linhas[k][13] = nome; if (nome) ok++; });
+  }
+  Logger.log('devolverDonoAnterior_: ' + ok + ' de ' + pendentes.length + ' leads devolvidos ao dono anterior (resto fica sem dono).');
 }
 
 function instalarTriggerLeads() {

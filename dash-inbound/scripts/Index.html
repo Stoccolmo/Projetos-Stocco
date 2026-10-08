@@ -1039,8 +1039,8 @@ function onDataError(err) {
   showToast('error', 'Falha de conexão: ' + msg);
 }
 
-// V22: Roberta volta ao Inbound em out/2026. O historico dela antes disso ja chega vazio das bases
-// (donoNoInbound_ em Utils.gs), entao ela nao precisa mais ser escondida aqui.
+// V22: Roberta volta ao Inbound em out/2026. O historico de OUTBOUND dela ja chega vazio das bases
+// (donoNoInbound_ em Utils.gs); o de inbound (jan-mai/26) fica visivel.
 var VENDEDORES_EXCLUIDOS_ = ['Luiz Fernando Pellegrini'];
 function popularMetas(compilado) {
   METAS = {};

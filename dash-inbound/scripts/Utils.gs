@@ -29,19 +29,23 @@ function normalizarVendedor(nome) {
   return ALIASES_VENDEDOR[chave] || String(nome).trim();
 }
 
-// V22 (08/10/2026): pre-vendedor que veio do Outbound so conta no Inbound a partir da data de
-// entrada no time. Antes dela, e em qualquer negocio que passou pelo funil Outbound, o dono e
-// gravado VAZIO nas bases (Neo Crescimento e Base Leads). A linha continua na base, entao os
-// totais de meses anteriores nao mudam. Roberta: Inbound jan-jun/26, Outbound jun-set/26, volta out/26.
-var INICIO_NO_INBOUND_ = { 'Roberta Lobasso': '2026-10-01' };
+// V22 (08/10/2026): pre-vendedor que passou um periodo no Outbound. O historico de INBOUND dele fica
+// na dash; o de OUTBOUND nunca entra. Nas bases (Neo Crescimento e Base Leads) o dono e gravado
+// VAZIO para (a) negocio que passou pelo funil Outbound e (b) linha com data dentro do periodo em
+// que a pessoa estava no Outbound. As linhas nao sao apagadas.
+// Roberta: Inbound jan-mai/26, Outbound jun-set/26, volta ao Inbound em out/26. Os leads criados
+// em jun-set no nome dela so foram repassados a ela em out/26 (carteira da Giovanna), por isso saem.
+var PERIODO_NO_OUTBOUND_ = { 'Roberta Lobasso': ['2026-06-01', '2026-09-30'] };
 function donoNoInbound_(nome, data, veioDoOutbound) {
-  var ini = INICIO_NO_INBOUND_[nome];
-  if (!ini) return nome;
+  var per = PERIODO_NO_OUTBOUND_[nome];
+  if (!per) return nome;
   if (veioDoOutbound) return '';
   var dt = (data instanceof Date) ? data : (data ? new Date(data) : null);
-  if (!dt || isNaN(dt.getTime())) return '';
-  var p = ini.split('-');
-  return dt >= new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])) ? nome : '';
+  if (!dt || isNaN(dt.getTime())) return nome;
+  var a = per[0].split('-'), b = per[1].split('-');
+  var ini = new Date(Number(a[0]), Number(a[1]) - 1, Number(a[2]));
+  var fim = new Date(Number(b[0]), Number(b[1]) - 1, Number(b[2]) + 1);
+  return (dt >= ini && dt < fim) ? '' : nome;
 }
 
 function parseDataISO_(iso) {

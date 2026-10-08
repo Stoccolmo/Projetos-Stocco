@@ -66,7 +66,7 @@ function sincronizarNeoCrescimento() {
     var reuniao = _d_(p[PROP_DATA_REU]) || _d_(p[PROP_DATA_OUT]);
       if (!reuniao) return;
       var veioDoOutbound = !!(p[PROP_DATA_OUT] || p[PROPS_OUTBOUND[0]] || p[PROPS_OUTBOUND[1]]);
-      var nome = donoNoInbound_(owners[String(p[PROP_SDR])] || '', reuniao, veioDoOutbound); // V22
+      var nome = donoNoInbound_(owners[String(p[PROP_SDR])] || '', null, veioDoOutbound); // V22: negocio sai so pelo marcador de Outbound
       var linha = new Array(17).fill('');
       linha[0]  = p.hs_object_id || d.id || '';
       linha[2]  = nome;
